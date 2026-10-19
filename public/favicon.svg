@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <linearGradient id="sageGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#93B496"/>
+      <stop offset="100%" stop-color="#6F9273"/>
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" rx="28" fill="url(#sageGrad)"/>
+  <rect x="5" y="5" width="90" height="90" rx="24" fill="none" stroke="#FFFFFF" stroke-opacity="0.3" stroke-width="2"/>
+  <!-- Elegant Serif D for Doré -->
+  <text x="50" y="69" font-family="'Playfair Display', Georgia, 'Times New Roman', serif" font-size="62" font-weight="600" fill="#FFFFFF" text-anchor="middle">D</text>
+  <!-- Small bakery accent dot -->
+  <circle cx="74" cy="38" r="3.5" fill="#F7E7CE"/>
+</svg>

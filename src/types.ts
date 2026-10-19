@@ -15,6 +15,7 @@ export interface Question {
   title: string;
   weight: number;
   prompt: string;
+  expected: string;
   guide: Record<Score, string>;
 }
 
