@@ -14,7 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      evaluations: {
+        Row: {
+          candidate_id: string
+          comment: string | null
+          created_at: string
+          evaluator: string
+          id: string
+          p1: number
+          p2: number
+          p3: number
+          p4: number
+          p5: number
+          updated_at: string
+        }
+        Insert: {
+          candidate_id: string
+          comment?: string | null
+          created_at?: string
+          evaluator: string
+          id?: string
+          p1: number
+          p2: number
+          p3: number
+          p4: number
+          p5: number
+          updated_at?: string
+        }
+        Update: {
+          candidate_id?: string
+          comment?: string | null
+          created_at?: string
+          evaluator?: string
+          id?: string
+          p1?: number
+          p2?: number
+          p3?: number
+          p4?: number
+          p5?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
