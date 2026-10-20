@@ -4,6 +4,7 @@ import { Check, CheckCircle2, ChevronDown, Clock, Edit3, Loader2, UserCheck } fr
 import { CANDIDATES, QUESTIONS } from "@/data";
 import { useEvalStore } from "@/store";
 import type { Evaluation, Evaluator, QuestionKey, Score } from "@/types";
+import { logActivityEvent } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 const LABELS: Record<Score, string> = {
@@ -113,6 +114,13 @@ export function EvaluationForm({ evaluatorName, onLogout }: EvaluationFormProps)
         candidateName: candName,
         isUpdate,
       });
+
+      logActivityEvent(
+        evaluatorName,
+        isUpdate ? "edito_evaluacion" : "envio_evaluacion",
+        candidateId,
+        candName,
+      );
 
       if (res === "saved") {
         toast.success(

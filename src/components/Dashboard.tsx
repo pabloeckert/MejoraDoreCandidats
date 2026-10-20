@@ -240,10 +240,10 @@ export function Dashboard() {
   // Default: sort by final score descending
   const [sortMode, setSortMode] = useState<"score" | "schedule">("score");
   const [openId, setOpenId] = useState<string | null>(null);
-  const [showDemo, setShowDemo] = useState(false);
+  const [showDemo, setShowDemo] = useState(evaluations.length === 0);
 
   const hasRealEvaluations = evaluations.length > 0;
-  const isDemoActive = showDemo && !hasRealEvaluations;
+  const isDemoActive = showDemo;
 
   // Compute and sort
   const results = useMemo(() => {
@@ -295,28 +295,18 @@ export function Dashboard() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Switch "Ver datos de ejemplo" (active only if no real evaluations) */}
+          {/* Switch "Ver datos de ejemplo" */}
           <div
-            className={cn(
-              "flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors",
-              hasRealEvaluations
-                ? "border-gray-200 bg-gray-100 text-gray-400 opacity-60 cursor-not-allowed"
-                : "border-gray-200 bg-white text-[#2B2B2B] hover:border-[#1A3D84] cursor-pointer",
-            )}
-            title={
-              hasRealEvaluations
-                ? "Desactivado: ya existen evaluaciones reales cargadas"
-                : "Ver datos de ejemplo en memoria"
-            }
+            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-[#2B2B2B] hover:border-[#1A3D84] transition-colors cursor-pointer"
+            title="Alternar entre datos de ejemplo y datos en vivo"
           >
             <Sparkles className="size-3.5 text-[#1A3D84]" />
             <label htmlFor="demo-toggle" className="cursor-pointer select-none">
-              Ver datos de ejemplo
+              {showDemo ? "Modo ejemplo activo" : "Ver datos de ejemplo"}
             </label>
             <input
               id="demo-toggle"
               type="checkbox"
-              disabled={hasRealEvaluations}
               checked={showDemo}
               onChange={(e) => setShowDemo(e.target.checked)}
               className="size-4 cursor-pointer accent-[#1A3D84]"

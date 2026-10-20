@@ -6,6 +6,7 @@ import { EvaluationForm } from "@/components/EvaluationForm";
 import { Dashboard } from "@/components/Dashboard";
 import { LoginScreen } from "@/components/LoginScreen";
 import { TutorialGuide } from "@/components/TutorialGuide";
+import { AdminModal } from "@/components/AdminModal";
 import {
   getStoredSession,
   clearStoredSession,
@@ -39,6 +40,7 @@ function Index() {
   const [view, setView] = useState<"form" | "board">("form");
   const [session, setSession] = useState<UserSession | null>(getStoredSession);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [showAdminModal, setShowAdminModal] = useState(false);
   const { load, upsertLocal, removeLocal, flushPending } = useEvalStore();
 
   // Check tutorial on initial load
@@ -109,7 +111,15 @@ function Index() {
 
   // If not logged in, render the Login / Alta screen
   if (!session) {
-    return <LoginScreen onSuccess={handleLoginSuccess} />;
+    return (
+      <>
+        <LoginScreen
+          onSuccess={handleLoginSuccess}
+          onAdminTrigger={() => setShowAdminModal(true)}
+        />
+        <AdminModal isOpen={showAdminModal} onClose={() => setShowAdminModal(false)} />
+      </>
+    );
   }
 
   return (
@@ -123,9 +133,16 @@ function Index() {
               className="relative cursor-pointer select-none"
               title="Mejora Continua"
               onPointerDown={(e) => {
-                // Prepared for Phase 2: Hidden Admin via Ctrl + Click
+                // Secret Admin via Left Click + Ctrl (or Cmd)
                 if (e.button === 0 && (e.ctrlKey || e.metaKey)) {
-                  console.info("[MC Admin] Triggered");
+                  e.preventDefault();
+                  setShowAdminModal(true);
+                }
+              }}
+              onClick={(e) => {
+                if (e.ctrlKey || e.metaKey) {
+                  e.preventDefault();
+                  setShowAdminModal(true);
                 }
               }}
               onContextMenu={(e) => {
@@ -224,6 +241,9 @@ function Index() {
         onClose={handleCloseTutorial}
         evaluatorName={session.nombre}
       />
+
+      {/* Hidden Admin Modal Overlay */}
+      <AdminModal isOpen={showAdminModal} onClose={() => setShowAdminModal(false)} />
     </div>
   );
 }
