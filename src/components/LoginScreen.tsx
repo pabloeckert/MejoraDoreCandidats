@@ -5,12 +5,11 @@ import { loginDirect, type UserSession } from "@/lib/auth";
 
 interface LoginScreenProps {
   onSuccess: (session: UserSession) => void;
-  onAdminTrigger?: () => void;
 }
 
 const PRIMARY_EVALUATORS = ["Cecilia", "Dahiana", "Silvana", "Sindy"];
 
-export function LoginScreen({ onSuccess, onAdminTrigger }: LoginScreenProps) {
+export function LoginScreen({ onSuccess }: LoginScreenProps) {
   const [customName, setCustomName] = useState<string>("");
   const [loadingName, setLoadingName] = useState<string | null>(null);
 
@@ -50,23 +49,8 @@ export function LoginScreen({ onSuccess, onAdminTrigger }: LoginScreenProps) {
         {/* Brand Header */}
         <div className="mb-8 flex flex-col items-center text-center">
           <div
-            className="relative mb-3 flex items-center justify-center cursor-pointer select-none"
+            className="relative mb-3 flex items-center justify-center select-none"
             title="Mejora Continua"
-            onPointerDown={(e) => {
-              if (e.button === 0 && (e.ctrlKey || e.metaKey)) {
-                e.preventDefault();
-                onAdminTrigger?.();
-              }
-            }}
-            onClick={(e) => {
-              if (e.ctrlKey || e.metaKey) {
-                e.preventDefault();
-                onAdminTrigger?.();
-              }
-            }}
-            onContextMenu={(e) => {
-              if (e.ctrlKey || e.metaKey) e.preventDefault();
-            }}
           >
             <img
               src="/brand/mc-isotipo.png"

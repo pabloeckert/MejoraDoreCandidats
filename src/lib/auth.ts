@@ -1,13 +1,10 @@
 export interface UserRecord {
   id: string;
   nombre: string;
-  pin: string | null;
-  status: "activo" | "pin_pendiente";
+  status: "activo";
   tutorial_visto: boolean;
   created_at: string;
   last_access: string | null;
-  failed_attempts: number;
-  blocked_until: number | null; // timestamp in ms
 }
 
 export interface UserSession {
@@ -25,18 +22,14 @@ export interface ActivityEvent {
     | "abrio_evaluacion"
     | "envio_evaluacion"
     | "edito_evaluacion"
-    | "vio_tablero"
-    | "blanqueo_pin";
+    | "vio_tablero";
   candidato_id?: string | undefined;
   detalles?: string | undefined;
   creado_en: string;
 }
 
-export const GHOST_PIN = "0000";
-
 const USERS_STORAGE_KEY = "dore_users_store";
 const SESSION_STORAGE_KEY = "dore_user_session";
-const ADMIN_PIN_KEY = "dore_admin_pin";
 const ACTIVITY_STORAGE_KEY = "dore_activity_events";
 
 // Canonical evaluators preloaded
@@ -44,46 +37,34 @@ const CANONICAL_USERS: Record<string, UserRecord> = {
   Cecilia: {
     id: "usr-cecilia",
     nombre: "Cecilia",
-    pin: GHOST_PIN,
     status: "activo",
     tutorial_visto: false,
     created_at: "2026-10-19T10:00:00.000Z",
     last_access: null,
-    failed_attempts: 0,
-    blocked_until: null,
   },
   Dahiana: {
     id: "usr-dahiana",
     nombre: "Dahiana",
-    pin: GHOST_PIN,
     status: "activo",
     tutorial_visto: false,
     created_at: "2026-10-19T10:00:00.000Z",
     last_access: null,
-    failed_attempts: 0,
-    blocked_until: null,
   },
   Silvana: {
     id: "usr-silvana",
     nombre: "Silvana",
-    pin: GHOST_PIN,
     status: "activo",
     tutorial_visto: false,
     created_at: "2026-10-19T10:00:00.000Z",
     last_access: null,
-    failed_attempts: 0,
-    blocked_until: null,
   },
   Sindy: {
     id: "usr-sindy",
     nombre: "Sindy",
-    pin: GHOST_PIN,
     status: "activo",
     tutorial_visto: false,
     created_at: "2026-10-19T10:00:00.000Z",
     last_access: null,
-    failed_attempts: 0,
-    blocked_until: null,
   },
 };
 
@@ -195,7 +176,7 @@ export function getActivityEvents(): ActivityEvent[] {
   }
 }
 
-// 1-Click Direct Authentication (Ghost PIN handled behind the scenes)
+// 1-Click Direct Authentication
 export async function loginDirect(nombre: string): Promise<{
   success: boolean;
   session?: UserSession;
@@ -213,19 +194,13 @@ export async function loginDirect(nombre: string): Promise<{
     user = {
       id: "usr-" + Math.random().toString(36).slice(2, 9),
       nombre: norm,
-      pin: GHOST_PIN,
       status: "activo",
       tutorial_visto: false,
       created_at: new Date().toISOString(),
       last_access: new Date().toISOString(),
-      failed_attempts: 0,
-      blocked_until: null,
     };
   } else {
-    user.pin = GHOST_PIN;
     user.status = "activo";
-    user.failed_attempts = 0;
-    user.blocked_until = null;
     user.last_access = new Date().toISOString();
   }
 
@@ -241,62 +216,6 @@ export async function loginDirect(nombre: string): Promise<{
   logActivityEvent(norm, "login");
 
   return { success: true, session };
-}
-
-// Backward-compatible login functions using the automatic ghost PIN
-export async function loginWithPin(
-  nombre: string,
-  _pin: string = GHOST_PIN,
-): Promise<{
-  success: boolean;
-  session?: UserSession;
-  requiresNewPin?: boolean;
-  userId?: string;
-  error?: string;
-}> {
-  return loginDirect(nombre);
-}
-
-export async function registerWithPin(
-  nombre: string,
-  _pin: string = GHOST_PIN,
-): Promise<UserSession> {
-  const res = await loginDirect(nombre);
-  if (res.session) return res.session;
-  throw new Error(res.error || "Error al iniciar sesión.");
-}
-
-export async function defineNewPin(
-  userIdOrNombre: string,
-  _pin: string = GHOST_PIN,
-): Promise<UserSession> {
-  const res = await loginDirect(userIdOrNombre);
-  if (res.session) return res.session;
-  throw new Error(res.error || "Error al iniciar sesión.");
-}
-
-export function resetUserPin(nombre: string): void {
-  const norm = normalizarNombre(nombre);
-  const users = getAllUsers();
-  const user = users[norm];
-  if (user) {
-    user.pin = GHOST_PIN;
-    user.status = "activo";
-    users[norm] = user;
-    saveUsers(users);
-  }
-}
-
-export function updateUserPin(nombre: string, pin: string = GHOST_PIN): void {
-  const norm = normalizarNombre(nombre);
-  const users = getAllUsers();
-  const user = users[norm];
-  if (user) {
-    user.pin = pin;
-    user.status = "activo";
-    users[norm] = user;
-    saveUsers(users);
-  }
 }
 
 export async function markTutorialSeen(userIdOrNombre: string): Promise<void> {
@@ -320,20 +239,4 @@ export async function markTutorialSeen(userIdOrNombre: string): Promise<void> {
     saveStoredSession({ ...current, tutorial_visto: true });
   }
   logActivityEvent(foundName, "tutorial_completo");
-}
-
-// Master Admin PIN Management (Kept intact for secret admin dashboard)
-export function getAdminPin(): string | null {
-  if (typeof window === "undefined") return "000000";
-  return localStorage.getItem(ADMIN_PIN_KEY) || "000000";
-}
-
-export function setAdminPin(pin: string): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(ADMIN_PIN_KEY, pin);
-}
-
-export function verifyAdminPin(pin: string): boolean {
-  const current = getAdminPin();
-  return pin === current || pin === "211021" || pin === "000000";
 }

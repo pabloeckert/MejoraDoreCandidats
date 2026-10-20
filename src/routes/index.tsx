@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { HelpCircle, LogOut } from "lucide-react";
+import { HelpCircle, LogOut, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { EvaluationForm } from "@/components/EvaluationForm";
 import { Dashboard } from "@/components/Dashboard";
@@ -111,44 +111,17 @@ function Index() {
 
   // If not logged in, render the Login / Alta screen
   if (!session) {
-    return (
-      <>
-        <LoginScreen
-          onSuccess={handleLoginSuccess}
-          onAdminTrigger={() => setShowAdminModal(true)}
-        />
-        <AdminModal isOpen={showAdminModal} onClose={() => setShowAdminModal(false)} />
-      </>
-    );
+    return <LoginScreen onSuccess={handleLoginSuccess} />;
   }
 
   return (
     <div className="min-h-screen bg-white">
-      {/* Header with Mejora Continua branding, Doré subtle chip, and admin listener */}
+      {/* Header with Mejora Continua branding and Doré subtle chip */}
       <header className="sticky top-0 z-20 border-b-2 border-gray-200 bg-white/95 backdrop-blur shadow-xs">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-2.5">
           {/* Brand Left */}
           <div className="flex items-center gap-3">
-            <div
-              className="relative cursor-pointer select-none"
-              title="Mejora Continua"
-              onPointerDown={(e) => {
-                // Secret Admin via Left Click + Ctrl (or Cmd)
-                if (e.button === 0 && (e.ctrlKey || e.metaKey)) {
-                  e.preventDefault();
-                  setShowAdminModal(true);
-                }
-              }}
-              onClick={(e) => {
-                if (e.ctrlKey || e.metaKey) {
-                  e.preventDefault();
-                  setShowAdminModal(true);
-                }
-              }}
-              onContextMenu={(e) => {
-                if (e.ctrlKey || e.metaKey) e.preventDefault();
-              }}
-            >
+            <div className="relative select-none" title="Mejora Continua">
               <img
                 src="/brand/mc-isotipo.png"
                 alt="Mejora Continua"
@@ -179,6 +152,18 @@ function Index() {
 
           {/* Navigation & User Actions Right */}
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            {/* Exclusive "Informe" button for Sindy */}
+            {session.nombre?.trim().toLowerCase() === "sindy" && (
+              <button
+                type="button"
+                onClick={() => setShowAdminModal(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#1A3D84] px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#15326c] transition cursor-pointer"
+              >
+                <BarChart3 className="size-3.5" />
+                <span>Informe</span>
+              </button>
+            )}
+
             {/* Tutorial Button */}
             <button
               type="button"
