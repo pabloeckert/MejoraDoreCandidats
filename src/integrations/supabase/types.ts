@@ -56,12 +56,64 @@ export type Database = {
         }
         Relationships: []
       }
+      usuarios: {
+        Row: {
+          bloqueado_hasta: string | null
+          creado_en: string | null
+          id: string
+          intentos_fallidos: number | null
+          nombre: string
+          pin: string
+          tutorial_visto: boolean | null
+          ultimo_acceso: string | null
+        }
+        Insert: {
+          bloqueado_hasta?: string | null
+          creado_en?: string | null
+          id?: string
+          intentos_fallidos?: number | null
+          nombre: string
+          pin: string
+          tutorial_visto?: boolean | null
+          ultimo_acceso?: string | null
+        }
+        Update: {
+          bloqueado_hasta?: string | null
+          creado_en?: string | null
+          id?: string
+          intentos_fallidos?: number | null
+          nombre?: string
+          pin?: string
+          tutorial_visto?: boolean | null
+          ultimo_acceso?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      crear_usuario: {
+        Args: { p_nombre: string; p_pin: string }
+        Returns: Json
+      }
+      definir_pin: {
+        Args: { p_pin: string; p_usuario_id: string }
+        Returns: Json
+      }
+      iniciar_sesion: {
+        Args: { p_nombre: string; p_pin: string }
+        Returns: Json
+      }
+      marcar_tutorial_visto: {
+        Args: { p_usuario_id: string }
+        Returns: boolean
+      }
+      normalizar_nombre_evaluador: {
+        Args: { p_nombre: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
