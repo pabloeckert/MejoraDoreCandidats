@@ -121,6 +121,9 @@ export function AdminModal({ isOpen, onClose }: AdminModalProps) {
         evScores.sort((a, b) => b.score - a.score);
         const max = evScores[0];
         const min = evScores[evScores.length - 1];
+
+        if (max === undefined || min === undefined) return;
+
         const gap = max.score - min.score;
 
         if (gap >= 6) {

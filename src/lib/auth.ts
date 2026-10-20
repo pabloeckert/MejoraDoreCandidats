@@ -27,8 +27,8 @@ export interface ActivityEvent {
     | "edito_evaluacion"
     | "vio_tablero"
     | "blanqueo_pin";
-  candidato_id?: string;
-  detalles?: string;
+  candidato_id?: string | undefined;
+  detalles?: string | undefined;
   creado_en: string;
 }
 
@@ -352,6 +352,9 @@ export async function defineNewPin(userIdOrNombre: string, pin: string): Promise
   }
 
   const u = users[targetKey];
+  if (!u) {
+    throw new Error("Usuario no encontrado.");
+  }
   u.pin = pin;
   u.status = "activo";
   u.failed_attempts = 0;
@@ -374,11 +377,13 @@ export async function defineNewPin(userIdOrNombre: string, pin: string): Promise
 export function resetUserPin(nombre: string): void {
   const norm = normalizarNombre(nombre);
   const users = getAllUsers();
-  if (users[norm]) {
-    users[norm].pin = null;
-    users[norm].status = "pin_pendiente";
-    users[norm].failed_attempts = 0;
-    users[norm].blocked_until = null;
+  const user = users[norm];
+  if (user) {
+    user.pin = null;
+    user.status = "pin_pendiente";
+    user.failed_attempts = 0;
+    user.blocked_until = null;
+    users[norm] = user;
     saveUsers(users);
     logActivityEvent(
       "Admin",
@@ -392,11 +397,13 @@ export function resetUserPin(nombre: string): void {
 export function updateUserPin(nombre: string, pin: string): void {
   const norm = normalizarNombre(nombre);
   const users = getAllUsers();
-  if (users[norm]) {
-    users[norm].pin = pin;
-    users[norm].status = "activo";
-    users[norm].failed_attempts = 0;
-    users[norm].blocked_until = null;
+  const user = users[norm];
+  if (user) {
+    user.pin = pin;
+    user.status = "activo";
+    user.failed_attempts = 0;
+    user.blocked_until = null;
+    users[norm] = user;
     saveUsers(users);
   }
 }
