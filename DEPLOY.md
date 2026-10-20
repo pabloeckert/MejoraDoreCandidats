@@ -7,18 +7,23 @@ Guía de despliegue y configuración para **Dore Candidate Compass** (`dore-cand
 ## 1. Comandos de despliegue
 
 Asegurate de haber iniciado sesión previamente en Cloudflare:
+
 ```bash
 npx wrangler login
 ```
 
 ### Despliegue a Producción (rama `main`)
+
 Construye el bundle en `dist/` e impacta en la URL de producción (`https://dore-candidatos.pages.dev` y el dominio personalizado):
+
 ```bash
 npm run deploy
 ```
 
 ### Despliegue a Preview (rama `preview`)
+
 Construye el bundle y genera una URL de vista previa aislada sin afectar producción:
+
 ```bash
 npm run deploy:preview
 ```
@@ -29,6 +34,7 @@ npm run deploy:preview
 
 Las variables de entorno `VITE_*` quedan incrustadas durante el build. Al compilar localmente con `npm run deploy`, toma los valores del archivo `.env` local.
 Si en el futuro se compila mediante CI/CD directo en Cloudflare Pages, configurá en **Settings > Environment variables**:
+
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_PUBLISHABLE_KEY`
 

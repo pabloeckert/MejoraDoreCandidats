@@ -50,12 +50,77 @@ export type Database = {
         };
         Relationships: [];
       };
+      usuarios: {
+        Row: {
+          bloqueado_hasta: string | null;
+          creado_en: string;
+          id: string;
+          intentos_fallidos: number;
+          nombre: string;
+          pin: string;
+          tutorial_visto: boolean;
+          ultimo_acceso: string;
+        };
+        Insert: {
+          bloqueado_hasta?: string | null;
+          creado_en?: string;
+          id?: string;
+          intentos_fallidos?: number;
+          nombre: string;
+          pin: string;
+          tutorial_visto?: boolean;
+          ultimo_acceso?: string;
+        };
+        Update: {
+          bloqueado_hasta?: string | null;
+          creado_en?: string;
+          id?: string;
+          intentos_fallidos?: number;
+          nombre?: string;
+          pin?: string;
+          tutorial_visto?: boolean;
+          ultimo_acceso?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      crear_usuario: {
+        Args: {
+          p_nombre: string;
+          p_pin: string;
+        };
+        Returns: Json;
+      };
+      iniciar_sesion: {
+        Args: {
+          p_nombre: string;
+          p_pin: string;
+        };
+        Returns: Json;
+      };
+      definir_pin: {
+        Args: {
+          p_usuario_id: string;
+          p_pin: string;
+        };
+        Returns: Json;
+      };
+      marcar_tutorial_visto: {
+        Args: {
+          p_usuario_id: string;
+        };
+        Returns: boolean;
+      };
+      normalizar_nombre_evaluador: {
+        Args: {
+          p_nombre: string;
+        };
+        Returns: string;
+      };
     };
     Enums: {
       [_ in never]: never;

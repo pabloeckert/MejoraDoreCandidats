@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Check, CheckCircle2, ChevronDown, Clock, Edit3, Loader2 } from "lucide-react";
-import { CANDIDATES, EVALUATORS, QUESTIONS } from "@/data";
+import { Check, CheckCircle2, ChevronDown, Clock, Edit3, Loader2, UserCheck } from "lucide-react";
+import { CANDIDATES, QUESTIONS } from "@/data";
 import { useEvalStore } from "@/store";
 import type { Evaluation, Evaluator, QuestionKey, Score } from "@/types";
 import { cn } from "@/lib/utils";
@@ -12,17 +12,19 @@ const LABELS: Record<Score, string> = {
   3: "Supera",
 };
 
-const EVAL_KEY = "dore-evaluator";
-
 function currentCandidateId(): string | undefined {
   const d = new Date();
   const now = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   return CANDIDATES.find((c) => now >= c.start && now < c.end)?.id;
 }
 
-export function EvaluationForm() {
+interface EvaluationFormProps {
+  evaluatorName: string;
+  onLogout?: () => void;
+}
+
+export function EvaluationForm({ evaluatorName, onLogout }: EvaluationFormProps) {
   const { evaluations, submit } = useEvalStore();
-  const [evaluator, setEvaluator] = useState<Evaluator | "">("");
   const [candidateId, setCandidateId] = useState("");
   const [scores, setScores] = useState<Partial<Record<QuestionKey, Score>>>({});
   const [comment, setComment] = useState("");
@@ -34,27 +36,20 @@ export function EvaluationForm() {
     isUpdate: boolean;
   } | null>(null);
 
-  // Set of candidate IDs evaluated by currently selected evaluator
+  // Set of candidate IDs evaluated by currently authenticated evaluator
   const evaluatedIds = useMemo(() => {
-    if (!evaluator) return new Set<string>();
-    return new Set(evaluations.filter((e) => e.evaluator === evaluator).map((e) => e.candidate_id));
-  }, [evaluations, evaluator]);
+    if (!evaluatorName) return new Set<string>();
+    return new Set(
+      evaluations.filter((e) => e.evaluator === evaluatorName).map((e) => e.candidate_id),
+    );
+  }, [evaluations, evaluatorName]);
 
-  // 1. Initial load: restore remembered evaluator and detect current schedule
+  // 1. Initial load: detect current schedule and propose next candidate
   useEffect(() => {
-    const saved = localStorage.getItem(EVAL_KEY) as Evaluator | null;
-    if (saved && EVALUATORS.includes(saved)) {
-      setEvaluator(saved);
-    }
     const currentId = currentCandidateId();
     setNowId(currentId);
-  }, []);
 
-  // 2. Automatically propose the next candidate that is missing for the evaluator
-  useEffect(() => {
-    if (!evaluator) return;
-
-    // If candidateId is empty OR if the user just switched evaluator and had no candidate
+    // If candidateId is empty, propose the next candidate missing for this evaluator
     if (!candidateId) {
       const nextPending = CANDIDATES.find((c) => !evaluatedIds.has(c.id));
       if (nextPending) {
@@ -63,12 +58,12 @@ export function EvaluationForm() {
         setCandidateId(CANDIDATES[0].id);
       }
     }
-  }, [evaluator, evaluatedIds, candidateId]);
+  }, [evaluatedIds, candidateId]);
 
   // Existing evaluation for this evaluator & candidate
   const existing = useMemo(
-    () => evaluations.find((e) => e.evaluator === evaluator && e.candidate_id === candidateId),
-    [evaluations, evaluator, candidateId],
+    () => evaluations.find((e) => e.evaluator === evaluatorName && e.candidate_id === candidateId),
+    [evaluations, evaluatorName, candidateId],
   );
 
   // Load existing values when candidate or existing changes
@@ -92,31 +87,14 @@ export function EvaluationForm() {
 
   // Question progress
   const answeredCount = QUESTIONS.filter((q) => scores[q.key] !== undefined).length;
-  const isComplete = Boolean(evaluator && candidateId && answeredCount === QUESTIONS.length);
-
-  // Switch evaluator handler
-  const handleEvaluatorChange = (nextEval: Evaluator | "") => {
-    setEvaluator(nextEval);
-    if (nextEval) {
-      localStorage.setItem(EVAL_KEY, nextEval);
-      // Auto propose next pending candidate for this evaluator
-      const nextPending = CANDIDATES.find(
-        (c) => !evaluations.some((e) => e.evaluator === nextEval && e.candidate_id === c.id),
-      );
-      if (nextPending) {
-        setCandidateId(nextPending.id);
-      }
-    } else {
-      localStorage.removeItem(EVAL_KEY);
-    }
-  };
+  const isComplete = Boolean(evaluatorName && candidateId && answeredCount === QUESTIONS.length);
 
   const onSubmit = async () => {
-    if (!isComplete || sending || !evaluator || !candidateId) return;
+    if (!isComplete || sending || !evaluatorName || !candidateId) return;
 
     setSending(true);
     const ev: Evaluation = {
-      evaluator,
+      evaluator: evaluatorName as Evaluator,
       candidate_id: candidateId,
       p1: scores.p1 as Score,
       p2: scores.p2 as Score,
@@ -168,24 +146,24 @@ export function EvaluationForm() {
     <div className="mx-auto max-w-xl px-4 pt-4 pb-36">
       {/* Visible Confirmation Banner */}
       {lastSubmitted && (
-        <div className="mb-5 flex items-start gap-3 rounded-xl border border-[#83A686]/40 bg-[#83A686]/10 p-4 text-[#2C4A2F]">
-          <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-[#83A686]" />
+        <div className="mb-5 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950">
+          <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-600" />
           <div className="flex-1 text-sm">
-            <p className="font-semibold text-foreground">
+            <p className="font-semibold text-emerald-900">
               {lastSubmitted.isUpdate
                 ? "✓ Evaluación actualizada"
                 : "✓ Evaluación enviada con éxito"}
             </p>
-            <p className="text-muted-foreground">
+            <p className="text-emerald-700 text-xs mt-0.5">
               Se registraron correctamente los puntajes de{" "}
-              <strong className="text-foreground">{lastSubmitted.candidateName}</strong> por{" "}
-              {evaluator}.
+              <strong className="text-emerald-900">{lastSubmitted.candidateName}</strong> por{" "}
+              {evaluatorName}.
             </p>
           </div>
           <button
             type="button"
             onClick={() => setLastSubmitted(null)}
-            className="text-xs font-medium text-muted-foreground hover:text-foreground"
+            className="text-xs font-medium text-emerald-700 hover:text-emerald-900 cursor-pointer"
           >
             Cerrar
           </button>
@@ -193,133 +171,142 @@ export function EvaluationForm() {
       )}
 
       {/* Evaluator & Candidate Selection Header */}
-      <div className="space-y-4 rounded-2xl border bg-card p-4 shadow-xs">
-        <div className="grid gap-3 sm:grid-cols-2">
-          {/* Evaluator Dropdown */}
-          <div className="space-y-1.5">
-            <label
-              htmlFor="evaluator-select"
-              className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-            >
-              Evaluadora
-            </label>
-            <select
-              id="evaluator-select"
-              className="field font-medium"
-              value={evaluator}
-              onChange={(e) => handleEvaluatorChange(e.target.value as Evaluator)}
-            >
-              <option value="">Seleccionar evaluadora…</option>
-              {EVALUATORS.map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
+      <div className="space-y-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-xs">
+        {/* Active Evaluator Badge (No select dropdown) */}
+        <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-gray-50/80 px-3.5 py-2.5">
+          <div className="flex items-center gap-2.5">
+            <div className="flex size-8 items-center justify-center rounded-lg bg-[#1A3D84] text-xs font-bold text-white uppercase shadow-xs">
+              <UserCheck className="size-4" />
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Evaluadora Activa
+              </p>
+              <p className="text-sm font-bold text-[#1A3D84]">{evaluatorName}</p>
+            </div>
           </div>
 
-          {/* Candidate Dropdown */}
-          <div className="space-y-1.5">
-            <label
-              htmlFor="candidate-select"
-              className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+          {onLogout && (
+            <button
+              type="button"
+              onClick={onLogout}
+              className="rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-600 hover:border-red-200 hover:bg-red-50 hover:text-[#E1061E] transition cursor-pointer"
             >
-              Candidato
-            </label>
-            <select
-              id="candidate-select"
-              className="field font-medium"
-              value={candidateId}
-              onChange={(e) => {
-                setCandidateId(e.target.value);
-                setLastSubmitted(null);
-              }}
-            >
-              <option value="">Seleccionar candidato…</option>
-              {(["Mañana", "Tarde"] as const).map((shift) => (
-                <optgroup key={shift} label={`Turno ${shift}`}>
-                  {CANDIDATES.filter((c) => c.shift === shift).map((c) => {
-                    const isDone = evaluatedIds.has(c.id);
-                    return (
-                      <option key={c.id} value={c.id}>
-                        {isDone ? "✓ " : ""}
-                        {c.start} · {c.name}
-                        {isDone ? " (evaluado)" : ""}
-                        {c.id === nowId ? " · AHORA" : ""}
-                      </option>
-                    );
-                  })}
-                </optgroup>
-              ))}
-            </select>
-          </div>
+              Salir
+            </button>
+          )}
+        </div>
+
+        {/* Candidate Dropdown */}
+        <div className="space-y-1.5">
+          <label
+            htmlFor="candidate-select"
+            className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground"
+          >
+            Candidato
+          </label>
+          <select
+            id="candidate-select"
+            className="field font-medium text-sm"
+            value={candidateId}
+            onChange={(e) => {
+              setCandidateId(e.target.value);
+              setLastSubmitted(null);
+            }}
+          >
+            <option value="">Seleccionar candidato…</option>
+            {(["Mañana", "Tarde"] as const).map((shift) => (
+              <optgroup key={shift} label={`Turno ${shift}`}>
+                {CANDIDATES.filter((c) => c.shift === shift).map((c) => {
+                  const isDone = evaluatedIds.has(c.id);
+                  return (
+                    <option key={c.id} value={c.id}>
+                      {isDone ? "✓ " : ""}
+                      {c.start} · {c.name}
+                      {isDone ? " (evaluado)" : ""}
+                      {c.id === nowId ? " · AHORA" : ""}
+                    </option>
+                  );
+                })}
+              </optgroup>
+            ))}
+          </select>
         </div>
 
         {/* Quick Candidate Selector Chips (Mobile First) */}
-        {evaluator && (
-          <div className="space-y-1.5 pt-1">
-            <span className="block text-xs font-medium text-muted-foreground">
-              Candidatos (✓ = ya evaluados por vos):
-            </span>
-            <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-none">
-              {CANDIDATES.map((c) => {
-                const isDone = evaluatedIds.has(c.id);
-                const isSelected = c.id === candidateId;
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => {
-                      setCandidateId(c.id);
-                      setLastSubmitted(null);
-                    }}
-                    className={cn(
-                      "flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
-                      isSelected
-                        ? "border-[#83A686] bg-[#83A686] text-white shadow-xs"
-                        : isDone
-                          ? "border-emerald-200 bg-emerald-50/70 text-emerald-800 hover:bg-emerald-100"
-                          : "border-border bg-background text-foreground hover:bg-muted",
-                    )}
-                  >
-                    {isDone && <Check className="size-3 stroke-[3]" />}
-                    <span>{c.name.split(",")[0]}</span>
-                    <span className="opacity-70">({c.start})</span>
-                  </button>
-                );
-              })}
-            </div>
+        <div className="space-y-1.5 pt-1">
+          <span className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Acceso Rápido por Candidato
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {CANDIDATES.map((c) => {
+              const isEvaluated = evaluatedIds.has(c.id);
+              const isSelected = c.id === candidateId;
+              const isNow = c.id === nowId;
+
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => {
+                    setCandidateId(c.id);
+                    setLastSubmitted(null);
+                  }}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all cursor-pointer",
+                    isSelected
+                      ? "bg-[#1A3D84] text-white shadow-xs font-semibold"
+                      : isEvaluated
+                        ? "bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100"
+                        : "bg-secondary text-secondary-foreground hover:bg-accent",
+                    isNow && !isSelected && "ring-2 ring-[#F7CC13]",
+                  )}
+                >
+                  {isEvaluated && <Check className="size-3 stroke-[2.5] text-emerald-600" />}
+                  <span>{c.name.split(",")[0]}</span>
+                  {isNow && (
+                    <span className="rounded bg-[#F7CC13] px-1 text-[9px] font-bold text-[#1A3D84]">
+                      AHORA
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Editing Notice if already evaluated */}
-      {existing && (
-        <div className="mt-4 flex items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
-          <Edit3 className="size-4 shrink-0 text-amber-700" />
-          <p>
-            <strong>Modo edición:</strong> Ya enviaste una evaluación para{" "}
-            <strong>{selectedCandidate?.name}</strong>. Podés corregir cualquier puntaje o
-            comentario y guardar los cambios.
-          </p>
-        </div>
-      )}
-
-      {/* Candidate Selected Info */}
+      {/* Selected Candidate Summary Banner */}
       {selectedCandidate && (
-        <div className="mt-4 flex items-center justify-between rounded-xl border bg-muted/30 px-4 py-2.5 text-xs text-muted-foreground">
-          <div className="flex items-center gap-1.5">
-            <Clock className="size-3.5" />
-            <span>
-              Turno {selectedCandidate.shift} ({selectedCandidate.start} a {selectedCandidate.end}{" "}
-              hs)
-            </span>
+        <div className="mt-4 flex items-center justify-between rounded-xl bg-gray-50 border border-gray-200 px-4 py-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="font-display text-base font-bold text-foreground">
+                {selectedCandidate.name}
+              </h2>
+              {existing && (
+                <span className="inline-flex items-center gap-1 rounded-md bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                  <Check className="size-3" />
+                  Evaluado
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Turno {selectedCandidate.shift} · {selectedCandidate.start} a {selectedCandidate.end}{" "}
+              hs
+            </p>
           </div>
-          <span>{existing ? "✓ Evaluado por vos" : "Pendiente de tu evaluación"}</span>
+
+          {selectedCandidate.id === nowId && (
+            <span className="inline-flex items-center gap-1 rounded-lg bg-[#F7CC13] px-2.5 py-1 text-xs font-bold text-[#1A3D84]">
+              <Clock className="size-3.5" />
+              En Horario
+            </span>
+          )}
         </div>
       )}
 
-      {/* Questions list */}
+      {/* 5 Questions Rubric */}
       <ol className="mt-5 space-y-4">
         {QUESTIONS.map((q, i) => {
           const currentScore = scores[q.key];
@@ -330,24 +317,24 @@ export function EvaluationForm() {
               key={q.key}
               className={cn(
                 "rounded-2xl border bg-card p-4 shadow-xs transition-all",
-                currentScore ? "border-[#83A686]/60" : "border-border",
+                currentScore ? "border-[#1A3D84]/40" : "border-border",
               )}
             >
               {/* Question Header */}
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-[#83A686]">
+                  <span className="text-xs font-bold uppercase tracking-wider text-[#1A3D84]">
                     Pregunta {i + 1} de 5 · Peso x{q.weight}
                   </span>
-                  <h3 className="font-display text-xl font-medium leading-snug text-foreground">
+                  <h3 className="font-display text-lg font-bold leading-snug text-foreground">
                     {q.title}
                   </h3>
                 </div>
               </div>
 
-              {/* Qué se espera line (EXPLICIT REQUIREMENT) */}
-              <div className="mt-2.5 rounded-xl bg-secondary/80 p-3 text-xs leading-relaxed text-secondary-foreground">
-                <span className="font-bold text-[#4F6C52]">Qué se espera: </span>
+              {/* Qué se espera line */}
+              <div className="mt-2.5 rounded-xl bg-gray-50 border border-gray-200 p-3 text-xs leading-relaxed text-[#2B2B2B]">
+                <span className="font-bold text-[#1A3D84]">Qué se espera: </span>
                 <span className="font-medium text-foreground">{q.expected}</span>
               </div>
 
@@ -358,16 +345,16 @@ export function EvaluationForm() {
               <button
                 type="button"
                 onClick={() => setOpenGuide(isOpen ? null : q.key)}
-                className="mt-2 flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                className="mt-2 flex items-center gap-1 text-xs font-medium text-[#1A3D84] hover:underline cursor-pointer"
               >
-                <span>{isOpen ? "Ocultar guía detallada" : "Ver criterios de puntuación"}</span>
+                <span>{isOpen ? "Ocultar criterios" : "Ver criterios detallados (1, 2, 3)"}</span>
                 <ChevronDown
                   className={cn("size-3.5 transition-transform", isOpen && "rotate-180")}
                 />
               </button>
 
               {isOpen && (
-                <div className="mt-2.5 rounded-xl border border-dashed p-3 text-xs text-muted-foreground space-y-1.5 bg-muted/20">
+                <div className="mt-2.5 rounded-xl border border-dashed border-gray-300 p-3 text-xs text-muted-foreground space-y-1.5 bg-gray-50/50">
                   {([1, 2, 3] as Score[]).map((s) => (
                     <div key={s} className="flex gap-2">
                       <span className="font-bold text-foreground shrink-0">
@@ -389,10 +376,10 @@ export function EvaluationForm() {
                       type="button"
                       onClick={() => setScores((prev) => ({ ...prev, [q.key]: s }))}
                       className={cn(
-                        "flex flex-col items-center justify-center min-h-[5.5rem] rounded-xl border-2 transition-all active:scale-[0.98]",
+                        "flex flex-col items-center justify-center min-h-[5.5rem] rounded-xl border-2 transition-all active:scale-[0.98] cursor-pointer",
                         isSelected
-                          ? "border-[#83A686] bg-[#83A686] text-white shadow-md ring-2 ring-[#83A686]/30"
-                          : "border-border bg-background text-muted-foreground hover:border-[#83A686]/50 hover:bg-muted/40",
+                          ? "border-[#1A3D84] bg-[#1A3D84] text-white shadow-md ring-2 ring-[#1A3D84]/20"
+                          : "border-border bg-white text-muted-foreground hover:border-[#1A3D84]/50 hover:bg-gray-50",
                       )}
                       aria-pressed={isSelected}
                     >
@@ -420,40 +407,39 @@ export function EvaluationForm() {
           htmlFor="comments-input"
           className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground"
         >
-          Observaciones o comentarios (opcional)
+          Observaciones adicionales (opcional)
         </label>
         <textarea
           id="comments-input"
-          className="field min-h-24 resize-y py-2.5 text-sm"
-          placeholder="Anotá detalles relevantes, dudas o justificaciones de puntaje…"
+          rows={3}
+          className="field text-sm"
+          placeholder="Notas cualitativas sobre actitud, respuestas, puntualidad o dudas para el consenso grupal…"
           value={comment}
           onChange={(e) => setComment(e.target.value)}
         />
       </div>
 
-      {/* Fixed Bottom Action Bar (Mobile First) */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/95 p-4 backdrop-blur-md shadow-2xl">
-        <div className="mx-auto flex max-w-xl flex-col gap-2">
-          {/* Progress Indicator */}
-          <div className="flex items-center justify-between text-xs font-semibold">
-            <span className={cn(answeredCount === 5 ? "text-[#4F6C52]" : "text-muted-foreground")}>
-              {answeredCount === 5 ? "✓ 5 de 5 respondidas" : `${answeredCount} de 5 respondidas`}
+      {/* Sticky Bottom Action Bar with Progress Counter */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur shadow-lg">
+        <div className="mx-auto max-w-xl space-y-2">
+          {/* Header indicator inside sticky bar */}
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-semibold text-muted-foreground">
+              {answeredCount === 5 ? (
+                <span className="text-emerald-700 font-bold">✓ Las 5 preguntas completas</span>
+              ) : (
+                <span>Preguntas respondidas: {answeredCount} de 5</span>
+              )}
             </span>
             <span className="text-muted-foreground">
-              {!evaluator
-                ? "Falta elegir evaluadora"
-                : !candidateId
-                  ? "Falta elegir candidato"
-                  : answeredCount < 5
-                    ? `Faltan responder ${5 - answeredCount}`
-                    : "Todo completo"}
+              {existing ? "Modo corrección activa" : "Nueva evaluación"}
             </span>
           </div>
 
           {/* Progress bar visual */}
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
             <div
-              className="h-full bg-[#83A686] transition-all duration-300"
+              className="h-full bg-[#1A3D84] transition-all duration-300"
               style={{ width: `${(answeredCount / 5) * 100}%` }}
             />
           </div>
@@ -464,10 +450,10 @@ export function EvaluationForm() {
             disabled={!isComplete || sending}
             onClick={onSubmit}
             className={cn(
-              "flex h-14 w-full items-center justify-center gap-2 rounded-xl text-lg font-semibold text-white transition-all shadow-md active:scale-[0.99]",
+              "flex h-13 w-full items-center justify-center gap-2 rounded-xl text-base font-semibold text-white transition-all shadow-md active:scale-[0.99]",
               isComplete && !sending
-                ? "bg-[#83A686] hover:bg-[#729475] cursor-pointer"
-                : "bg-muted text-muted-foreground opacity-50 cursor-not-allowed",
+                ? "bg-[#1A3D84] hover:bg-[#15326c] cursor-pointer"
+                : "bg-gray-300 text-gray-500 opacity-60 cursor-not-allowed",
             )}
           >
             {sending ? (
@@ -483,7 +469,7 @@ export function EvaluationForm() {
             ) : (
               <>
                 <Check className="size-5 stroke-[2.5]" />
-                <span>Enviar Evaluación</span>
+                <span>Guardar Evaluación</span>
               </>
             )}
           </button>

@@ -6,10 +6,12 @@ import {
   ChevronDown,
   Clock,
   ArrowUpDown,
+  Sparkles,
 } from "lucide-react";
 import { CANDIDATES, EVALUATORS, MAX_SCORE, QUESTIONS } from "@/data";
+import { DEMO_CANDIDATES, DEMO_EVALUATIONS } from "@/data.demo";
 import { useEvalStore } from "@/store";
-import { computeAll, STATUS_LABEL } from "@/utils/scoring";
+import { computeAll, computeResult, STATUS_LABEL } from "@/utils/scoring";
 import type { CandidateResult } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -108,9 +110,9 @@ function StatusBadgeWithMotive({ r }: { r: CandidateResult }) {
   );
 }
 
-function exportCsv(results: CandidateResult[]) {
+function exportCsv(results: CandidateResult[], evaluatorsList: string[]) {
   const rows = [
-    ["Candidato", "Turno", "Horario", "Evaluaciones", "Puntaje Final", "Estado", ...EVALUATORS],
+    ["Candidato", "Turno", "Horario", "Evaluaciones", "Puntaje Final", "Estado", ...evaluatorsList],
   ];
   for (const r of results) {
     rows.push([
@@ -120,7 +122,7 @@ function exportCsv(results: CandidateResult[]) {
       `${r.count} de 4`,
       fmt(r.score),
       STATUS_LABEL[r.status],
-      ...EVALUATORS.map((ev) => {
+      ...evaluatorsList.map((ev) => {
         const e = r.evaluations.find((x) => x.evaluator === ev);
         return e
           ? QUESTIONS.map((q) => `${q.key.toUpperCase()}:${e[q.key]}`).join(" ") +
@@ -140,7 +142,7 @@ function exportCsv(results: CandidateResult[]) {
   URL.revokeObjectURL(url);
 }
 
-function Detail({ r }: { r: CandidateResult }) {
+function Detail({ r, isDemo = false }: { r: CandidateResult; isDemo?: boolean }) {
   if (!r.count) {
     return (
       <div className="py-2 text-xs italic text-muted-foreground">
@@ -149,7 +151,8 @@ function Detail({ r }: { r: CandidateResult }) {
     );
   }
 
-  const missingEvaluators = EVALUATORS.filter(
+  const expectedEvaluators = isDemo ? ["A", "B", "C", "D"] : EVALUATORS;
+  const missingEvaluators = expectedEvaluators.filter(
     (ev) => !r.evaluations.some((e) => e.evaluator === ev),
   );
 
@@ -158,35 +161,50 @@ function Detail({ r }: { r: CandidateResult }) {
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b text-left text-muted-foreground">
-              <th className="py-2 pr-3 font-semibold">Evaluadora</th>
-              {QUESTIONS.map((q, i) => (
-                <th key={q.key} className="px-2 py-2 text-center font-semibold" title={q.title}>
-                  P{i + 1} (x{q.weight})
+            <tr className="border-b border-border text-left font-semibold text-muted-foreground">
+              <th className="px-3 py-2">Evaluadora</th>
+              {QUESTIONS.map((q) => (
+                <th key={q.key} className="px-3 py-2 text-center">
+                  {q.key.toUpperCase()} (x{q.weight})
                 </th>
               ))}
-              <th className="px-3 py-2 text-center font-semibold">Subtotal</th>
-              <th className="px-3 py-2 font-semibold">Comentarios</th>
+              <th className="px-3 py-2 text-center font-bold text-foreground">Total</th>
+              <th className="px-3 py-2">Observaciones</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-border/60">
             {r.evaluations.map((e) => {
               const subtotal = QUESTIONS.reduce((sum, q) => sum + e[q.key] * q.weight, 0);
+              const isVetoCause = e.p2 === 1 || e.p4 === 1;
+
               return (
-                <tr key={e.evaluator} className="border-b border-border/50">
-                  <td className="py-2 pr-3 font-medium text-foreground">{e.evaluator}</td>
+                <tr
+                  key={e.evaluator}
+                  className={cn("hover:bg-muted/30", isVetoCause && "bg-[#E1061E]/5")}
+                >
+                  <td className="px-3 py-2 font-medium">
+                    <span className="flex items-center gap-1.5">
+                      <span>{e.evaluator}</span>
+                      {isVetoCause && (
+                        <span className="rounded bg-[#E1061E] px-1 py-0.2 text-[9px] font-bold text-white">
+                          VETO
+                        </span>
+                      )}
+                    </span>
+                  </td>
                   {QUESTIONS.map((q) => {
-                    const isVetoScore = (q.key === "p2" || q.key === "p4") && e[q.key] === 1;
+                    const isCrit = (q.key === "p2" || q.key === "p4") && e[q.key] === 1;
                     return (
                       <td
                         key={q.key}
                         className={cn(
-                          "px-2 py-2 text-center",
-                          isVetoScore
-                            ? "font-bold text-[#E1061E] bg-[#E1061E]/10 rounded"
-                            : "text-foreground",
+                          "px-3 py-2 text-center font-mono",
+                          isCrit
+                            ? "bg-[#E1061E] font-bold text-white rounded"
+                            : e[q.key] === 3
+                              ? "font-semibold text-emerald-700"
+                              : "text-foreground",
                         )}
-                        title={isVetoScore ? "Puntaje 1 en pregunta crítica (VETO)" : undefined}
                       >
                         {e[q.key]}
                       </td>
@@ -222,10 +240,20 @@ export function Dashboard() {
   // Default: sort by final score descending
   const [sortMode, setSortMode] = useState<"score" | "schedule">("score");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [showDemo, setShowDemo] = useState(false);
+
+  const hasRealEvaluations = evaluations.length > 0;
+  const isDemoActive = showDemo && !hasRealEvaluations;
 
   // Compute and sort
   const results = useMemo(() => {
-    const all = computeAll(evaluations);
+    let all: CandidateResult[];
+
+    if (isDemoActive) {
+      all = DEMO_CANDIDATES.map((c) => computeResult(c, DEMO_EVALUATIONS));
+    } else {
+      all = computeAll(evaluations);
+    }
 
     if (sortMode === "score") {
       return [...all].sort((a, b) => {
@@ -236,18 +264,21 @@ export function Dashboard() {
           if (b.score !== a.score) return b.score - a.score;
         }
         // If tied or both null, preserve schedule order
-        const idxA = CANDIDATES.findIndex((c) => c.id === a.candidate.id);
-        const idxB = CANDIDATES.findIndex((c) => c.id === b.candidate.id);
+        const targetList = isDemoActive ? DEMO_CANDIDATES : CANDIDATES;
+        const idxA = targetList.findIndex((c) => c.id === a.candidate.id);
+        const idxB = targetList.findIndex((c) => c.id === b.candidate.id);
         return idxA - idxB;
       });
     }
 
     // Schedule order
     return all;
-  }, [evaluations, sortMode]);
+  }, [evaluations, sortMode, isDemoActive]);
 
-  const totalEvaluations = evaluations.length;
-  const maxPossibleEvals = CANDIDATES.length * EVALUATORS.length;
+  const totalEvaluations = isDemoActive ? DEMO_EVALUATIONS.length : evaluations.length;
+  const maxPossibleEvals = isDemoActive
+    ? DEMO_CANDIDATES.length * 4
+    : CANDIDATES.length * EVALUATORS.length;
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 px-4 py-6">
@@ -264,6 +295,34 @@ export function Dashboard() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Switch "Ver datos de ejemplo" (active only if no real evaluations) */}
+          <div
+            className={cn(
+              "flex items-center gap-2 rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors",
+              hasRealEvaluations
+                ? "border-gray-200 bg-gray-100 text-gray-400 opacity-60 cursor-not-allowed"
+                : "border-gray-200 bg-white text-[#2B2B2B] hover:border-[#1A3D84] cursor-pointer",
+            )}
+            title={
+              hasRealEvaluations
+                ? "Desactivado: ya existen evaluaciones reales cargadas"
+                : "Ver datos de ejemplo en memoria"
+            }
+          >
+            <Sparkles className="size-3.5 text-[#1A3D84]" />
+            <label htmlFor="demo-toggle" className="cursor-pointer select-none">
+              Ver datos de ejemplo
+            </label>
+            <input
+              id="demo-toggle"
+              type="checkbox"
+              disabled={hasRealEvaluations}
+              checked={showDemo}
+              onChange={(e) => setShowDemo(e.target.checked)}
+              className="size-4 cursor-pointer accent-[#1A3D84]"
+            />
+          </div>
+
           {/* Sort toggle (Default: score descending) */}
           <button
             type="button"
@@ -280,13 +339,38 @@ export function Dashboard() {
           <button
             type="button"
             className="btn-outline cursor-pointer"
-            onClick={() => exportCsv(results)}
+            onClick={() => exportCsv(results, isDemoActive ? ["A", "B", "C", "D"] : EVALUATORS)}
           >
             <Download className="size-3.5" />
             <span>Descargar CSV</span>
           </button>
         </div>
       </div>
+
+      {/* Demo Banner */}
+      {isDemoActive && (
+        <div className="flex items-center justify-between rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs text-amber-950 shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white font-bold">
+              <Sparkles className="size-4" />
+            </div>
+            <div>
+              <p className="font-bold text-amber-900 text-sm">Estás viendo datos de ejemplo</p>
+              <p className="text-amber-800">
+                Mostrando casos de prueba en memoria (Terna Final, En Reserva, Descartado, Veto y
+                Pendiente evaluados por A, B, C y D). Estos datos no se guardan en la base de datos.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowDemo(false)}
+            className="rounded-lg border border-amber-300 bg-white px-3 py-1 font-semibold text-amber-900 hover:bg-amber-100 transition cursor-pointer"
+          >
+            Volver a datos reales
+          </button>
+        </div>
+      )}
 
       {/* Scoring Rules Quick Bar */}
       <div className="flex flex-wrap items-center gap-2 rounded-xl border bg-card p-3 text-xs text-muted-foreground">
@@ -409,7 +493,7 @@ export function Dashboard() {
                   {isExpanded && (
                     <tr className="bg-muted/20">
                       <td colSpan={5} className="px-6 py-4">
-                        <Detail r={r} />
+                        <Detail r={r} isDemo={isDemoActive} />
                       </td>
                     </tr>
                   )}
@@ -449,48 +533,35 @@ export function Dashboard() {
                   </p>
                 </div>
                 <div className="text-right">
-                  <span className="font-display text-2xl font-bold leading-none">
-                    {fmt(r.score)}
-                  </span>
+                  <span className="font-display text-2xl font-bold">{fmt(r.score)}</span>
                   {r.score !== null && (
-                    <span className="block text-[10px] text-muted-foreground">de 33</span>
+                    <span className="text-[11px] text-muted-foreground block">/ 33</span>
                   )}
                 </div>
               </div>
 
-              {/* Counter "2 de 4 evaluaciones" */}
-              <div className="mt-2.5 flex items-center justify-between text-xs">
+              {/* Badges: Evaluations count & Status with motive */}
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3">
                 <span
                   className={cn(
-                    "rounded-md px-2 py-0.5 font-semibold",
-                    r.count === 4 ? "bg-emerald-100 text-emerald-800" : "bg-zinc-200 text-zinc-700",
+                    "inline-block rounded-md px-2 py-0.5 text-xs font-semibold",
+                    r.count === 4
+                      ? "bg-emerald-100 text-emerald-800"
+                      : r.count > 0
+                        ? "bg-zinc-200 text-zinc-800"
+                        : "bg-zinc-100 text-zinc-500",
                   )}
                 >
-                  {r.count} de 4 evaluaciones
+                  {r.count} de 4 evaluaron
                 </span>
-                {hasPending && (
-                  <span className="text-[11px] text-muted-foreground italic">
-                    (evaluación pendiente)
-                  </span>
-                )}
-              </div>
 
-              {/* Large Colored Badge with Motive */}
-              <div className="mt-3">
                 <StatusBadgeWithMotive r={r} />
               </div>
 
-              {/* Expand details toggle */}
-              <div className="mt-3 flex items-center justify-between border-t border-border/50 pt-2 text-xs text-muted-foreground">
-                <span>{isExpanded ? "Ocultar desglose" : "Ver notas por evaluadora"}</span>
-                <ChevronDown
-                  className={cn("size-3.5 transition-transform", isExpanded && "rotate-180")}
-                />
-              </div>
-
+              {/* Mobile Expanded Detail */}
               {isExpanded && (
-                <div className="mt-2 pt-2 border-t border-border/40">
-                  <Detail r={r} />
+                <div className="mt-3 border-t border-border pt-3">
+                  <Detail r={r} isDemo={isDemoActive} />
                 </div>
               )}
             </div>

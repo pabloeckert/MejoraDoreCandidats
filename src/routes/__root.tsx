@@ -75,31 +75,27 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1" },
-      { title: "Doré · Evaluación de candidatos" },
+      { title: "Evaluación de Candidatos · Mejora Continua" },
       {
         name: "description",
         content:
-          "Herramienta interna de Doré Panadería y Cafetería para evaluar candidatos a supervisor en tiempo real.",
+          "Herramienta interna de Mejora Continua para evaluar candidatos a supervisor de Doré Panadería y Cafetería.",
       },
-      { property: "og:title", content: "Doré · Evaluación de candidatos" },
+      { property: "og:title", content: "Evaluación de Candidatos · Mejora Continua" },
       {
         property: "og:description",
         content:
-          "Herramienta interna de Doré Panadería y Cafetería para evaluar candidatos a supervisor en tiempo real.",
+          "Herramienta interna de Mejora Continua para evaluar candidatos a supervisor de Doré Panadería y Cafetería.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&display=swap",
-      },
       { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+      { rel: "icon", href: "/favicon-32x32.png", type: "image/png", sizes: "32x32" },
       { rel: "alternate icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
     ],
   }),
   shellComponent: RootShell,
