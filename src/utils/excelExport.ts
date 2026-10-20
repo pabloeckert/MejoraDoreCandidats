@@ -205,7 +205,11 @@ export async function generateEvaluationsBackupExcel(evaluations: Evaluation[]):
 
     const row = sheetRaw.getRow(2 + idx);
     row.values = [
-      e.created_at ? new Date(e.created_at).toLocaleString("es-AR") : "—",
+      e.created_at
+        ? new Date(e.created_at).toLocaleString("es-AR")
+        : e.updated_at
+          ? new Date(e.updated_at).toLocaleString("es-AR")
+          : "—",
       e.evaluator,
       candName,
       e.p1,

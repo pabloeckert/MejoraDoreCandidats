@@ -20,6 +20,7 @@ export interface Question {
 }
 
 export interface Evaluation {
+  id?: string;
   evaluator: Evaluator;
   candidate_id: string;
   p1: Score;
@@ -28,6 +29,7 @@ export interface Evaluation {
   p4: Score;
   p5: Score;
   comment?: string | null;
+  created_at?: string;
   updated_at?: string;
 }
 
