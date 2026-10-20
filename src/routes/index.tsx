@@ -134,14 +134,15 @@ function Index() {
                 <h1 className="font-display text-lg font-bold leading-none text-[#1A3D84] tracking-tight">
                   Mejora Continua
                 </h1>
-                {/* Chip Doré */}
-                <div className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-[#83A686]/40 bg-[#83A686]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#3B5B3E]">
+                {/* Chip secundario Doré */}
+                <div className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50/90 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+                  <span className="text-[9px] uppercase font-semibold text-gray-400">Cliente:</span>
                   <img
                     src="/brand/dore-logo.png"
                     alt="Doré"
-                    className="h-3 w-auto object-contain rounded-xs"
+                    className="h-2.5 w-auto object-contain opacity-80"
                   />
-                  <span>Evaluación para Doré</span>
+                  <span className="font-semibold text-gray-700">Doré</span>
                 </div>
               </div>
               <p className="text-[11px] font-medium text-[#6B7280]">
@@ -228,7 +229,11 @@ function Index() {
       />
 
       {/* Hidden Admin Modal Overlay */}
-      <AdminModal isOpen={showAdminModal} onClose={() => setShowAdminModal(false)} />
+      <AdminModal
+        isOpen={showAdminModal}
+        onClose={() => setShowAdminModal(false)}
+        currentUser={session?.nombre}
+      />
     </div>
   );
 }

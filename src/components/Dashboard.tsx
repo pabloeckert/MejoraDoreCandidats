@@ -285,10 +285,14 @@ export function Dashboard() {
       {/* Top Bar with Controls and Legend */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="font-display text-2xl font-semibold text-foreground">
-            Tablero Consolidado
-          </h2>
-          <p className="text-xs text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <h2 className="font-display text-2xl font-bold text-[#1A3D84]">Tablero Consolidado</h2>
+            <span className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+              <span className="text-[9px] uppercase font-semibold text-gray-400">Cliente:</span>
+              <span className="font-semibold text-gray-700">Doré</span>
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
             {totalEvaluations} de {maxPossibleEvals} evaluaciones totales cargadas · Puntaje máx.{" "}
             {MAX_SCORE} · Actualizado en tiempo real
           </p>

@@ -12,6 +12,7 @@ interface State {
   removeLocal: (evaluator: string, candidate_id: string) => void;
   submit: (e: Evaluation) => Promise<"saved" | "queued">;
   flushPending: () => Promise<void>;
+  resetAll: () => void;
 }
 
 const key = (e: Evaluation) => `${e.evaluator}|${e.candidate_id}`;
@@ -103,5 +104,9 @@ export const useEvalStore = create<State>((set, get) => ({
       }
     }
     writePending(left);
+  },
+  resetAll: () => {
+    localStorage.removeItem(PENDING_KEY);
+    set({ evaluations: [] });
   },
 }));

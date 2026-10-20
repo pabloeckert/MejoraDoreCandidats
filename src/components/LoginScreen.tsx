@@ -66,14 +66,17 @@ export function LoginScreen({ onSuccess }: LoginScreenProps) {
             Evaluación de Candidatos a Supervisor
           </p>
 
-          {/* Chip Doré */}
-          <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-[#83A686]/30 bg-[#83A686]/10 px-3 py-1 text-xs font-semibold text-[#2F4F32]">
+          {/* Chip secundario Cliente Doré */}
+          <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50/90 px-3 py-1 text-xs font-medium text-gray-500">
+            <span className="text-[10px] uppercase font-semibold text-gray-400 tracking-wider">
+              Cliente:
+            </span>
             <img
               src="/brand/dore-logo.png"
               alt="Doré"
-              className="h-3 w-auto object-contain rounded-xs"
+              className="h-2.5 w-auto object-contain opacity-80"
             />
-            <span>Doré Panadería y Cafetería</span>
+            <span className="font-semibold text-gray-700">Doré</span>
           </div>
 
           <p className="mt-3 text-xs italic text-[#6B7280]">&ldquo;No motiva, clarifica.&rdquo;</p>
