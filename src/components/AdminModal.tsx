@@ -2,9 +2,6 @@ import { useState, useMemo } from "react";
 import {
   X,
   Shield,
-  Eye,
-  EyeOff,
-  RotateCcw,
   FileText,
   AlertTriangle,
   CheckCircle2,
@@ -14,8 +11,6 @@ import {
   Clock,
   Download,
   KeyRound,
-  Edit2,
-  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -31,8 +26,6 @@ import {
 } from "recharts";
 import {
   getAllUsers,
-  resetUserPin,
-  updateUserPin,
   getActivityEvents,
   verifyAdminPin,
   setAdminPin,
@@ -61,12 +54,6 @@ export function AdminModal({ isOpen, onClose }: AdminModalProps) {
     "usuarios",
   );
 
-  // State for user management
-  const [showPlainPin, setShowPlainPin] = useState<Record<string, boolean>>({});
-  const [editingUser, setEditingUser] = useState<string | null>(null);
-  const [newCustomPin, setNewCustomPin] = useState("");
-  const [usersVersion, setUsersVersion] = useState(0);
-
   // New admin PIN setting modal
   const [showChangeAdminPin, setShowChangeAdminPin] = useState(false);
   const [newMasterPin, setNewMasterPin] = useState("");
@@ -75,10 +62,8 @@ export function AdminModal({ isOpen, onClose }: AdminModalProps) {
 
   // Read all users from client storage
   const usersRecord = useMemo(() => {
-    // depend on usersVersion to refresh
-    void usersVersion;
     return getAllUsers();
-  }, [usersVersion]);
+  }, []);
 
   const usersList: UserRecord[] = useMemo(() => {
     return Object.values(usersRecord);
@@ -223,26 +208,6 @@ export function AdminModal({ isOpen, onClose }: AdminModalProps) {
     }
   };
 
-  // Blanquear PIN Handler
-  const handleResetPin = (nombre: string) => {
-    resetUserPin(nombre);
-    setUsersVersion((v) => v + 1);
-    toast.info(`PIN de ${nombre} blanqueado. Estado: pin_pendiente.`);
-  };
-
-  // Edit / Set PIN Handler
-  const handleSaveCustomPin = (nombre: string) => {
-    if (!/^\d{4}$/.test(newCustomPin)) {
-      toast.error("El PIN debe tener exactamente 4 dígitos numéricos.");
-      return;
-    }
-    updateUserPin(nombre, newCustomPin);
-    setEditingUser(null);
-    setNewCustomPin("");
-    setUsersVersion((v) => v + 1);
-    toast.success(`Nuevo PIN guardado para ${nombre}.`);
-  };
-
   // Change Master Admin PIN
   const handleChangeMasterPin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -351,7 +316,7 @@ export function AdminModal({ isOpen, onClose }: AdminModalProps) {
               <nav className="flex space-x-1 sm:space-x-4">
                 {(
                   [
-                    ["usuarios", "Usuarios y PINs", Users],
+                    ["usuarios", "Evaluadoras", Users],
                     ["actividad", "Actividad y Discrepancias", Activity],
                     ["graficas", "Gráficas de Evaluación", BarChart3],
                     ["reportes", "Exportar Informes PDF", FileText],
@@ -376,16 +341,16 @@ export function AdminModal({ isOpen, onClose }: AdminModalProps) {
 
             {/* Tab Panes */}
             <div className="flex-1 overflow-y-auto p-6">
-              {/* TAB 1: USUARIOS Y GESTION DE PINS */}
+              {/* TAB 1: EVALUADORAS */}
               {activeTab === "usuarios" && (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-sm font-bold uppercase tracking-wider text-[#1A3D84]">
-                        Evaluadoras y Control de Accesos
+                        Evaluadoras Registradas
                       </h3>
                       <p className="text-xs text-[#6B7280]">
-                        Visualizá los PIN en texto plano, editá o blanquealos a pin_pendiente.
+                        Estado de actividad y avance de evaluaciones en tiempo real.
                       </p>
                     </div>
                   </div>
@@ -395,106 +360,26 @@ export function AdminModal({ isOpen, onClose }: AdminModalProps) {
                       <thead className="border-b border-gray-200 bg-gray-50 text-gray-600 font-semibold uppercase tracking-wider text-[11px]">
                         <tr>
                           <th className="px-4 py-3">Evaluadora</th>
-                          <th className="px-4 py-3">PIN (Texto Plano)</th>
                           <th className="px-4 py-3">Estado</th>
                           <th className="px-4 py-3 text-center">Evaluaciones</th>
                           <th className="px-4 py-3">Tutorial</th>
-                          <th className="px-4 py-3">Último Acceso</th>
-                          <th className="px-4 py-3 text-right">Acciones</th>
+                          <th className="px-4 py-3 text-right">Último Acceso</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
                         {usersList.map((u) => {
-                          const isRevealed = Boolean(showPlainPin[u.nombre]);
                           const userEvals = currentEvals.filter((e) => e.evaluator === u.nombre);
-                          const isEditing = editingUser === u.nombre;
 
                           return (
                             <tr key={u.id} className="hover:bg-gray-50/60 transition-colors">
                               <td className="px-4 py-3 font-semibold text-[#2B2B2B]">{u.nombre}</td>
 
-                              {/* Plain text PIN with Eye toggle */}
-                              <td className="px-4 py-3">
-                                {isEditing ? (
-                                  <div className="flex items-center gap-1.5">
-                                    <input
-                                      type="text"
-                                      maxLength={4}
-                                      value={newCustomPin}
-                                      onChange={(e) =>
-                                        setNewCustomPin(e.target.value.replace(/\D/g, ""))
-                                      }
-                                      placeholder="4 díg."
-                                      className="w-16 rounded border border-gray-300 px-2 py-1 font-mono text-xs focus:outline-none focus:border-[#1A3D84]"
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => handleSaveCustomPin(u.nombre)}
-                                      className="rounded bg-[#1A3D84] p-1 text-white hover:bg-[#15326c]"
-                                      title="Guardar"
-                                    >
-                                      <Check className="size-3" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => setEditingUser(null)}
-                                      className="rounded bg-gray-200 p-1 text-gray-600 hover:bg-gray-300"
-                                      title="Cancelar"
-                                    >
-                                      <X className="size-3" />
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-mono font-medium text-gray-800">
-                                      {u.status === "pin_pendiente" || !u.pin ? (
-                                        <span className="text-amber-600 italic">(Blanqueado)</span>
-                                      ) : isRevealed ? (
-                                        <span className="font-bold text-[#1A3D84] bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200">
-                                          {u.pin}
-                                        </span>
-                                      ) : (
-                                        "••••"
-                                      )}
-                                    </span>
-                                    {u.pin && (
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          setShowPlainPin((prev) => ({
-                                            ...prev,
-                                            [u.nombre]: !prev[u.nombre],
-                                          }))
-                                        }
-                                        className="text-gray-400 hover:text-gray-700 cursor-pointer"
-                                        title={
-                                          isRevealed ? "Ocultar PIN" : "Ver PIN en texto plano"
-                                        }
-                                      >
-                                        {isRevealed ? (
-                                          <EyeOff className="size-3.5" />
-                                        ) : (
-                                          <Eye className="size-3.5" />
-                                        )}
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-                              </td>
-
                               {/* Status Badge */}
                               <td className="px-4 py-3">
-                                {u.status === "activo" && u.pin ? (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
-                                    <span className="size-1.5 rounded-full bg-emerald-500" />
-                                    Activo
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-800 border border-amber-200">
-                                    <span className="size-1.5 rounded-full bg-amber-500" />
-                                    PIN Pendiente
-                                  </span>
-                                )}
+                                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
+                                  <span className="size-1.5 rounded-full bg-emerald-500" />
+                                  Activo (Acceso directo)
+                                </span>
                               </td>
 
                               {/* Evaluaciones Count */}
@@ -517,41 +402,13 @@ export function AdminModal({ isOpen, onClose }: AdminModalProps) {
                               </td>
 
                               {/* Last access */}
-                              <td className="px-4 py-3 text-gray-500">
+                              <td className="px-4 py-3 text-right text-gray-500">
                                 {u.last_access
                                   ? new Date(u.last_access).toLocaleTimeString("es-AR", {
                                       hour: "2-digit",
                                       minute: "2-digit",
                                     })
                                   : "—"}
-                              </td>
-
-                              {/* Actions */}
-                              <td className="px-4 py-3 text-right">
-                                <div className="flex items-center justify-end gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setEditingUser(u.nombre);
-                                      setNewCustomPin(u.pin || "");
-                                    }}
-                                    className="rounded-lg border border-gray-200 px-2 py-1 text-[11px] font-semibold text-gray-700 hover:border-[#1A3D84] hover:text-[#1A3D84] transition cursor-pointer"
-                                    title="Editar PIN directamente"
-                                  >
-                                    <Edit2 className="size-3 inline mr-1" />
-                                    Editar
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => handleResetPin(u.nombre)}
-                                    className="rounded-lg border border-red-200 bg-red-50/50 px-2 py-1 text-[11px] font-semibold text-[#E1061E] hover:bg-red-100 transition cursor-pointer"
-                                    title="Blanquear PIN (lleva a estado pin_pendiente)"
-                                  >
-                                    <RotateCcw className="size-3 inline mr-1" />
-                                    Blanquear
-                                  </button>
-                                </div>
                               </td>
                             </tr>
                           );

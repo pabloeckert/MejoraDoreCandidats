@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
-import { Delete, RotateCcw, AlertCircle, Loader2 } from "lucide-react";
-import { loginWithPin, defineNewPin, type UserSession, getAllUsers } from "@/lib/auth";
+import { User, ArrowRight, Loader2 } from "lucide-react";
+import { loginDirect, type UserSession } from "@/lib/auth";
 
 interface LoginScreenProps {
   onSuccess: (session: UserSession) => void;
@@ -11,158 +11,44 @@ interface LoginScreenProps {
 const PRIMARY_EVALUATORS = ["Cecilia", "Dahiana", "Silvana", "Sindy"];
 
 export function LoginScreen({ onSuccess, onAdminTrigger }: LoginScreenProps) {
-  const [nombre, setNombre] = useState<string>("");
-  const [customNameMode, setCustomNameMode] = useState<boolean>(false);
-  const [pin, setPin] = useState<string>("");
-  const [mode, setMode] = useState<"login" | "new_pin_first" | "new_pin_confirm">("login");
-  const [newPinDraft, setNewPinDraft] = useState<string>("");
-  const [targetUserId, setTargetUserId] = useState<string | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [shake, setShake] = useState<boolean>(false);
+  const [customName, setCustomName] = useState<string>("");
+  const [loadingName, setLoadingName] = useState<string | null>(null);
 
-  const customInputRef = useRef<HTMLInputElement>(null);
+  const handleSelectEvaluator = async (evaluator: string) => {
+    if (loadingName) return;
+    setLoadingName(evaluator);
 
-  // Trigger shake animation on error
-  const triggerShake = useCallback(() => {
-    setShake(true);
-    setTimeout(() => setShake(false), 500);
-  }, []);
-
-  // Process PIN submission automatically when 4 digits are entered
-  const handlePinComplete = useCallback(
-    async (completedPin: string) => {
-      setErrorMsg(null);
-
-      const targetNombre = nombre.trim();
-      if (!targetNombre) {
-        setErrorMsg("Seleccioná o ingresá tu nombre antes de digitar el PIN.");
-        triggerShake();
-        setPin("");
-        return;
+    try {
+      const res = await loginDirect(evaluator);
+      if (res.success && res.session) {
+        toast.success(`¡Bienvenida, ${res.session.nombre}!`);
+        onSuccess(res.session);
+      } else {
+        toast.error(res.error || "No se pudo iniciar sesión.");
       }
-
-      setLoading(true);
-
-      try {
-        if (mode === "login") {
-          const res = await loginWithPin(targetNombre, completedPin);
-          if (res.requiresNewPin) {
-            setTargetUserId(res.userId || targetNombre);
-            setMode("new_pin_first");
-            setPin("");
-            toast.info("Tu PIN fue blanqueado. Por favor definí tu nuevo PIN de 4 dígitos.");
-            return;
-          }
-          if (res.success && res.session) {
-            toast.success(`Bienvenida, ${res.session.nombre}`);
-            onSuccess(res.session);
-          } else {
-            setErrorMsg(res.error || "PIN incorrecto.");
-            triggerShake();
-            setPin("");
-          }
-        } else if (mode === "new_pin_first") {
-          setNewPinDraft(completedPin);
-          setPin("");
-          setMode("new_pin_confirm");
-          toast.info("Confirmá tu nuevo PIN de 4 dígitos.");
-        } else if (mode === "new_pin_confirm") {
-          if (completedPin !== newPinDraft) {
-            setErrorMsg("Los PINs no coinciden. Intentá nuevamente.");
-            triggerShake();
-            setPin("");
-            setNewPinDraft("");
-            setMode("new_pin_first");
-            return;
-          }
-          const session = await defineNewPin(targetUserId || targetNombre, completedPin);
-          toast.success("Nuevo PIN activado con éxito.");
-          onSuccess(session);
-        }
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : "Error al procesar el acceso.";
-        setErrorMsg(message);
-        triggerShake();
-        setPin("");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [nombre, mode, newPinDraft, targetUserId, onSuccess, triggerShake],
-  );
-
-  // Keypad click or physical keyboard handler
-  const handleDigit = useCallback(
-    (digit: string) => {
-      if (loading || pin.length >= 4) return;
-      const nextPin = pin + digit;
-      setPin(nextPin);
-      if (nextPin.length === 4) {
-        // Auto-advance & auto-submit on 4th digit
-        handlePinComplete(nextPin);
-      }
-    },
-    [loading, pin, handlePinComplete],
-  );
-
-  const handleBackspace = useCallback(() => {
-    if (loading) return;
-    setPin((prev) => prev.slice(0, -1));
-    setErrorMsg(null);
-  }, [loading]);
-
-  const handleClear = useCallback(() => {
-    if (loading) return;
-    setPin("");
-    setErrorMsg(null);
-  }, [loading]);
-
-  // Physical keyboard listener
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is currently typing in the custom name input
-      if (document.activeElement === customInputRef.current) return;
-
-      if (/^[0-9]$/.test(e.key)) {
-        e.preventDefault();
-        handleDigit(e.key);
-      } else if (e.key === "Backspace") {
-        e.preventDefault();
-        handleBackspace();
-      } else if (e.key === "Escape") {
-        e.preventDefault();
-        handleClear();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handleDigit, handleBackspace, handleClear]);
-
-  // When evaluator chip is chosen
-  const handleSelectEvaluator = (evaluator: string) => {
-    setNombre(evaluator);
-    setCustomNameMode(false);
-    setErrorMsg(null);
-    setPin("");
-
-    // Check if this evaluator has pin_pendiente
-    const users = getAllUsers();
-    if (users[evaluator] && users[evaluator].status === "pin_pendiente") {
-      setTargetUserId(users[evaluator].id);
-      setMode("new_pin_first");
-      toast.info(`El PIN de ${evaluator} fue blanqueado. Ingresá el nuevo PIN.`);
-    } else {
-      setMode("login");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Error al iniciar sesión.";
+      toast.error(message);
+    } finally {
+      setLoadingName(null);
     }
+  };
+
+  const handleCustomSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = customName.trim();
+    if (!clean) {
+      toast.info("Ingresá tu nombre para continuar.");
+      return;
+    }
+    await handleSelectEvaluator(clean);
   };
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-white px-4 py-8 select-none">
       <div className="w-full max-w-sm">
-        {/* Brand Header: Clean white dominance with MC Isotipo */}
-        <div className="mb-6 flex flex-col items-center text-center">
+        {/* Brand Header */}
+        <div className="mb-8 flex flex-col items-center text-center">
           <div
             className="relative mb-3 flex items-center justify-center cursor-pointer select-none"
             title="Mejora Continua"
@@ -209,164 +95,73 @@ export function LoginScreen({ onSuccess, onAdminTrigger }: LoginScreenProps) {
           <p className="mt-3 text-xs italic text-[#6B7280]">&ldquo;No motiva, clarifica.&rdquo;</p>
         </div>
 
-        {/* Step 1: Evaluator Selection */}
-        <div className="mb-5">
-          <label className="mb-2 block text-center text-xs font-semibold uppercase tracking-wider text-[#1A3D84]">
-            ¿Quién evalúa?
-          </label>
+        {/* 1-Step Direct Evaluator Selection */}
+        <div className="space-y-4">
+          <p className="text-center text-xs font-semibold uppercase tracking-wider text-[#1A3D84]">
+            ¿Quién evalúa hoy?
+          </p>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-3">
             {PRIMARY_EVALUATORS.map((ev) => {
-              const isSelected = nombre === ev && !customNameMode;
+              const isLoading = loadingName === ev;
               return (
                 <button
                   key={ev}
                   type="button"
+                  disabled={Boolean(loadingName)}
                   onClick={() => handleSelectEvaluator(ev)}
-                  className={`flex items-center justify-center rounded-xl border py-2.5 px-3 text-sm font-semibold transition cursor-pointer ${
-                    isSelected
-                      ? "border-[#1A3D84] bg-[#1A3D84] text-white shadow-xs"
-                      : "border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50"
-                  }`}
+                  className="group relative flex flex-col items-center justify-center rounded-2xl border-2 border-gray-100 bg-white p-4 shadow-xs transition hover:border-[#1A3D84] hover:shadow-md active:scale-98 disabled:opacity-50 cursor-pointer"
                 >
-                  {ev}
+                  <div className="flex size-11 items-center justify-center rounded-full bg-blue-50 text-[#1A3D84] font-bold text-base group-hover:bg-[#1A3D84] group-hover:text-white transition-colors">
+                    {isLoading ? <Loader2 className="size-5 animate-spin" /> : ev.charAt(0)}
+                  </div>
+                  <span className="mt-2.5 text-sm font-bold text-[#2B2B2B] group-hover:text-[#1A3D84] transition-colors">
+                    {ev}
+                  </span>
+                  <span className="text-[10px] text-[#6B7280]">Acceso directo</span>
                 </button>
               );
             })}
           </div>
 
-          {/* Option for custom name */}
-          <div className="mt-2 text-center">
-            {!customNameMode ? (
-              <button
-                type="button"
-                onClick={() => {
-                  setCustomNameMode(true);
-                  setNombre("");
-                  setTimeout(() => customInputRef.current?.focus(), 100);
-                }}
-                className="text-xs font-medium text-[#1A3D84] hover:underline cursor-pointer"
+          {/* Custom Name Section */}
+          <div className="pt-3 border-t border-gray-100">
+            <form onSubmit={handleCustomSubmit} className="space-y-2">
+              <label
+                htmlFor="custom-name"
+                className="block text-center text-xs font-medium text-[#6B7280]"
               >
-                ¿Otro nombre? Hacé clic acá
-              </button>
-            ) : (
-              <div className="mt-1">
-                <input
-                  ref={customInputRef}
-                  type="text"
-                  placeholder="Tu nombre y apellido"
-                  value={nombre}
-                  onChange={(e) => setNombre(e.target.value)}
-                  className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-[#2B2B2B] placeholder:text-gray-400 focus:border-[#1A3D84] focus:outline-none focus:ring-2 focus:ring-[#1A3D84]/20"
-                />
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Step 2: PIN Dots / Visual Feedback */}
-        <div className="mb-4">
-          <div className="flex items-center justify-between px-1 mb-1.5">
-            <span className="text-xs font-semibold uppercase tracking-wider text-[#1A3D84]">
-              {mode === "login" && "PIN de 4 dígitos"}
-              {mode === "new_pin_first" && "Nuevo PIN (4 dígitos)"}
-              {mode === "new_pin_confirm" && "Confirmar nuevo PIN"}
-            </span>
-            {loading && (
-              <span className="flex items-center gap-1 text-xs text-[#1A3D84]">
-                <Loader2 className="size-3 animate-spin" />
-                <span>Verificando...</span>
-              </span>
-            )}
-          </div>
-
-          {/* 4 PIN Dots */}
-          <div
-            className={`flex items-center justify-center gap-3.5 py-2.5 transition-transform ${
-              shake ? "animate-bounce" : ""
-            }`}
-          >
-            {[0, 1, 2, 3].map((index) => {
-              const isFilled = pin.length > index;
-              return (
-                <div
-                  key={index}
-                  className={`flex size-11 items-center justify-center rounded-xl border-2 transition-all ${
-                    isFilled
-                      ? "border-[#1A3D84] bg-white shadow-xs"
-                      : "border-gray-200 bg-gray-50/50"
-                  }`}
-                >
-                  {isFilled ? (
-                    <div className="size-3.5 rounded-full bg-[#1A3D84]" />
-                  ) : (
-                    <div className="size-2 rounded-full bg-gray-200" />
-                  )}
+                ¿Otro nombre?
+              </label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
+                  <input
+                    id="custom-name"
+                    type="text"
+                    placeholder="Tu nombre y apellido"
+                    value={customName}
+                    onChange={(e) => setCustomName(e.target.value)}
+                    disabled={Boolean(loadingName)}
+                    className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-3 text-xs text-[#2B2B2B] placeholder:text-gray-400 focus:border-[#1A3D84] focus:outline-none focus:ring-2 focus:ring-[#1A3D84]/20"
+                  />
                 </div>
-              );
-            })}
-          </div>
-
-          {errorMsg && (
-            <div className="mt-2 flex items-center justify-center gap-1.5 rounded-lg bg-red-50 py-1.5 px-3 text-xs text-[#E1061E] border border-red-200 text-center">
-              <AlertCircle className="size-3.5 shrink-0" />
-              <span>{errorMsg}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Step 3: Numeric Keypad (Auto-advances and submits at 4th digit) */}
-        <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-xs">
-          <div className="grid grid-cols-3 gap-2">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-              <button
-                key={num}
-                type="button"
-                disabled={loading || !nombre}
-                onClick={() => handleDigit(String(num))}
-                className="flex h-14 items-center justify-center rounded-xl border border-gray-100 bg-white text-xl font-bold text-[#1A3D84] shadow-xs transition hover:border-[#1A3D84]/40 hover:bg-gray-50 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-              >
-                {num}
-              </button>
-            ))}
-
-            {/* Clear Button */}
-            <button
-              type="button"
-              disabled={loading || pin.length === 0}
-              onClick={handleClear}
-              className="flex h-14 items-center justify-center rounded-xl border border-transparent text-xs font-semibold text-gray-500 hover:text-gray-900 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-              title="Borrar todo"
-            >
-              <RotateCcw className="size-5" />
-            </button>
-
-            {/* Zero */}
-            <button
-              type="button"
-              disabled={loading || !nombre}
-              onClick={() => handleDigit("0")}
-              className="flex h-14 items-center justify-center rounded-xl border border-gray-100 bg-white text-xl font-bold text-[#1A3D84] shadow-xs transition hover:border-[#1A3D84]/40 hover:bg-gray-50 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-            >
-              0
-            </button>
-
-            {/* Backspace Button */}
-            <button
-              type="button"
-              disabled={loading || pin.length === 0}
-              onClick={handleBackspace}
-              className="flex h-14 items-center justify-center rounded-xl border border-transparent text-gray-600 hover:text-[#E1061E] active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-              title="Borrar último"
-            >
-              <Delete className="size-5" />
-            </button>
+                <button
+                  type="submit"
+                  disabled={Boolean(loadingName) || !customName.trim()}
+                  className="flex items-center gap-1 rounded-xl bg-[#1A3D84] px-3.5 py-2 text-xs font-semibold text-white shadow-xs hover:bg-[#15326c] transition disabled:opacity-40 cursor-pointer"
+                >
+                  <span>Entrar</span>
+                  <ArrowRight className="size-3.5" />
+                </button>
+              </div>
+            </form>
           </div>
         </div>
 
-        {/* Footer info note */}
-        <p className="mt-4 text-center text-[11px] text-[#6B7280]">
-          Ingresá los 4 dígitos. El sistema verifica automáticamente.
+        {/* Footer note */}
+        <p className="mt-8 text-center text-[11px] text-[#6B7280]">
+          Hacé clic en tu nombre para ingresar inmediatamente a la evaluación.
         </p>
       </div>
     </div>

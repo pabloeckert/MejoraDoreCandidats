@@ -338,25 +338,15 @@ export function exportAuditoriaPdf(users: UserRecord[], events: ActivityEvent[])
   // Table 1: Users
   const userRows = users.map((u) => [
     u.nombre,
-    u.status === "activo" ? "Activo" : "PIN Pendiente",
-    u.pin || "Blanqueado",
+    "Activo",
+    "Acceso directo",
     u.tutorial_visto ? "Sí" : "No",
     u.last_access ? new Date(u.last_access).toLocaleTimeString("es-AR") : "Sin ingresos",
-    u.failed_attempts > 0 ? `${u.failed_attempts} fallas` : "0",
   ]);
 
   autoTable(doc, {
     startY: 28,
-    head: [
-      [
-        "Evaluadora",
-        "Estado",
-        "PIN Asignado",
-        "Tutorial Visto",
-        "Último Acceso",
-        "Intentos Fallidos",
-      ],
-    ],
+    head: [["Evaluadora", "Estado", "Acceso", "Tutorial Visto", "Último Acceso"]],
     body: userRows,
     theme: "striped",
     headStyles: {

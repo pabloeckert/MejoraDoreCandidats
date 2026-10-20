@@ -32,6 +32,8 @@ export interface ActivityEvent {
   creado_en: string;
 }
 
+export const GHOST_PIN = "0000";
+
 const USERS_STORAGE_KEY = "dore_users_store";
 const SESSION_STORAGE_KEY = "dore_user_session";
 const ADMIN_PIN_KEY = "dore_admin_pin";
@@ -42,7 +44,7 @@ const CANONICAL_USERS: Record<string, UserRecord> = {
   Cecilia: {
     id: "usr-cecilia",
     nombre: "Cecilia",
-    pin: "2110",
+    pin: GHOST_PIN,
     status: "activo",
     tutorial_visto: false,
     created_at: "2026-10-19T10:00:00.000Z",
@@ -53,7 +55,7 @@ const CANONICAL_USERS: Record<string, UserRecord> = {
   Dahiana: {
     id: "usr-dahiana",
     nombre: "Dahiana",
-    pin: "2110",
+    pin: GHOST_PIN,
     status: "activo",
     tutorial_visto: false,
     created_at: "2026-10-19T10:00:00.000Z",
@@ -64,7 +66,7 @@ const CANONICAL_USERS: Record<string, UserRecord> = {
   Silvana: {
     id: "usr-silvana",
     nombre: "Silvana",
-    pin: "2110",
+    pin: GHOST_PIN,
     status: "activo",
     tutorial_visto: false,
     created_at: "2026-10-19T10:00:00.000Z",
@@ -75,7 +77,7 @@ const CANONICAL_USERS: Record<string, UserRecord> = {
   Sindy: {
     id: "usr-sindy",
     nombre: "Sindy",
-    pin: "2110",
+    pin: GHOST_PIN,
     status: "activo",
     tutorial_visto: false,
     created_at: "2026-10-19T10:00:00.000Z",
@@ -104,7 +106,6 @@ export function getAllUsers(): Record<string, UserRecord> {
       return CANONICAL_USERS;
     }
     const parsed = JSON.parse(raw);
-    // Ensure canonical users always exist
     let changed = false;
     for (const [k, v] of Object.entries(CANONICAL_USERS)) {
       if (!parsed[k]) {
@@ -194,15 +195,10 @@ export function getActivityEvents(): ActivityEvent[] {
   }
 }
 
-// Authentication Functions
-export async function loginWithPin(
-  nombre: string,
-  pin: string,
-): Promise<{
+// 1-Click Direct Authentication (Ghost PIN handled behind the scenes)
+export async function loginDirect(nombre: string): Promise<{
   success: boolean;
   session?: UserSession;
-  requiresNewPin?: boolean;
-  userId?: string;
   error?: string;
 }> {
   const norm = normalizarNombre(nombre);
@@ -211,14 +207,13 @@ export async function loginWithPin(
   }
 
   const users = getAllUsers();
-  const user = users[norm];
+  let user = users[norm];
 
   if (!user) {
-    // If not found, create as new user
-    const newUser: UserRecord = {
+    user = {
       id: "usr-" + Math.random().toString(36).slice(2, 9),
       nombre: norm,
-      pin,
+      pin: GHOST_PIN,
       status: "activo",
       tutorial_visto: false,
       created_at: new Date().toISOString(),
@@ -226,99 +221,14 @@ export async function loginWithPin(
       failed_attempts: 0,
       blocked_until: null,
     };
-    users[norm] = newUser;
-    saveUsers(users);
-
-    const session: UserSession = {
-      id: newUser.id,
-      nombre: newUser.nombre,
-      tutorial_visto: newUser.tutorial_visto,
-    };
-    saveStoredSession(session);
-    logActivityEvent(norm, "login", undefined, "Alta automática de nuevo usuario");
-    return { success: true, session };
-  }
-
-  // Check temporal lockout
-  if (user.blocked_until && Date.now() < user.blocked_until) {
-    const rem = Math.ceil((user.blocked_until - Date.now()) / 1000);
-    return {
-      success: false,
-      error: `Cuenta bloqueada temporalmente. Probá de nuevo en ${rem} segundos.`,
-    };
-  }
-
-  // If status is pin_pendiente (admin reset)
-  if (user.status === "pin_pendiente" || user.pin === null) {
-    return {
-      success: false,
-      requiresNewPin: true,
-      userId: user.id,
-      error: "Tu PIN fue blanqueado por el administrador. Creá tu nuevo PIN de 4 dígitos.",
-    };
-  }
-
-  // Check PIN match
-  if (user.pin === pin) {
+  } else {
+    user.pin = GHOST_PIN;
+    user.status = "activo";
     user.failed_attempts = 0;
     user.blocked_until = null;
     user.last_access = new Date().toISOString();
-    users[norm] = user;
-    saveUsers(users);
-
-    const session: UserSession = {
-      id: user.id,
-      nombre: user.nombre,
-      tutorial_visto: user.tutorial_visto,
-    };
-    saveStoredSession(session);
-    logActivityEvent(norm, "login");
-
-    return { success: true, session };
-  } else {
-    user.failed_attempts = (user.failed_attempts || 0) + 1;
-    if (user.failed_attempts >= 5) {
-      user.blocked_until = Date.now() + 60000; // 60 seconds
-      user.failed_attempts = 0;
-      users[norm] = user;
-      saveUsers(users);
-      return {
-        success: false,
-        error: "Demasiados intentos fallidos. Probá de nuevo en un minuto.",
-      };
-    } else {
-      users[norm] = user;
-      saveUsers(users);
-      const remaining = 5 - user.failed_attempts;
-      return {
-        success: false,
-        error: `PIN incorrecto. Te quedan ${remaining} ${remaining === 1 ? "intento" : "intentos"}.`,
-      };
-    }
   }
-}
 
-export async function registerWithPin(nombre: string, pin: string): Promise<UserSession> {
-  const norm = normalizarNombre(nombre);
-  const users = getAllUsers();
-
-  const user: UserRecord = users[norm] || {
-    id: "usr-" + Math.random().toString(36).slice(2, 9),
-    nombre: norm,
-    pin,
-    status: "activo",
-    tutorial_visto: false,
-    created_at: new Date().toISOString(),
-    last_access: new Date().toISOString(),
-    failed_attempts: 0,
-    blocked_until: null,
-  };
-
-  user.pin = pin;
-  user.status = "activo";
-  user.last_access = new Date().toISOString();
-  user.failed_attempts = 0;
-  user.blocked_until = null;
   users[norm] = user;
   saveUsers(users);
 
@@ -328,50 +238,41 @@ export async function registerWithPin(nombre: string, pin: string): Promise<User
     tutorial_visto: user.tutorial_visto,
   };
   saveStoredSession(session);
-  logActivityEvent(norm, "login", undefined, "Registro de usuario");
+  logActivityEvent(norm, "login");
 
-  return session;
+  return { success: true, session };
 }
 
-export async function defineNewPin(userIdOrNombre: string, pin: string): Promise<UserSession> {
-  const users = getAllUsers();
-  // Find user by id or by name
-  let targetKey: string | null = null;
-  for (const [key, u] of Object.entries(users)) {
-    if (
-      u.id === userIdOrNombre ||
-      normalizarNombre(u.nombre) === normalizarNombre(userIdOrNombre)
-    ) {
-      targetKey = key;
-      break;
-    }
-  }
+// Backward-compatible login functions using the automatic ghost PIN
+export async function loginWithPin(
+  nombre: string,
+  _pin: string = GHOST_PIN,
+): Promise<{
+  success: boolean;
+  session?: UserSession;
+  requiresNewPin?: boolean;
+  userId?: string;
+  error?: string;
+}> {
+  return loginDirect(nombre);
+}
 
-  if (!targetKey) {
-    throw new Error("Usuario no encontrado.");
-  }
+export async function registerWithPin(
+  nombre: string,
+  _pin: string = GHOST_PIN,
+): Promise<UserSession> {
+  const res = await loginDirect(nombre);
+  if (res.session) return res.session;
+  throw new Error(res.error || "Error al iniciar sesión.");
+}
 
-  const u = users[targetKey];
-  if (!u) {
-    throw new Error("Usuario no encontrado.");
-  }
-  u.pin = pin;
-  u.status = "activo";
-  u.failed_attempts = 0;
-  u.blocked_until = null;
-  u.last_access = new Date().toISOString();
-  users[targetKey] = u;
-  saveUsers(users);
-
-  const session: UserSession = {
-    id: u.id,
-    nombre: u.nombre,
-    tutorial_visto: u.tutorial_visto,
-  };
-  saveStoredSession(session);
-  logActivityEvent(u.nombre, "login", undefined, "Nuevo PIN definido tras blanqueo");
-
-  return session;
+export async function defineNewPin(
+  userIdOrNombre: string,
+  _pin: string = GHOST_PIN,
+): Promise<UserSession> {
+  const res = await loginDirect(userIdOrNombre);
+  if (res.session) return res.session;
+  throw new Error(res.error || "Error al iniciar sesión.");
 }
 
 export function resetUserPin(nombre: string): void {
@@ -379,30 +280,20 @@ export function resetUserPin(nombre: string): void {
   const users = getAllUsers();
   const user = users[norm];
   if (user) {
-    user.pin = null;
-    user.status = "pin_pendiente";
-    user.failed_attempts = 0;
-    user.blocked_until = null;
+    user.pin = GHOST_PIN;
+    user.status = "activo";
     users[norm] = user;
     saveUsers(users);
-    logActivityEvent(
-      "Admin",
-      "blanqueo_pin",
-      undefined,
-      `PIN de ${norm} blanqueado a pin_pendiente`,
-    );
   }
 }
 
-export function updateUserPin(nombre: string, pin: string): void {
+export function updateUserPin(nombre: string, pin: string = GHOST_PIN): void {
   const norm = normalizarNombre(nombre);
   const users = getAllUsers();
   const user = users[norm];
   if (user) {
     user.pin = pin;
     user.status = "activo";
-    user.failed_attempts = 0;
-    user.blocked_until = null;
     users[norm] = user;
     saveUsers(users);
   }
@@ -431,7 +322,7 @@ export async function markTutorialSeen(userIdOrNombre: string): Promise<void> {
   logActivityEvent(foundName, "tutorial_completo");
 }
 
-// Admin PIN Management
+// Master Admin PIN Management (Kept intact for secret admin dashboard)
 export function getAdminPin(): string | null {
   if (typeof window === "undefined") return "000000";
   return localStorage.getItem(ADMIN_PIN_KEY) || "000000";
@@ -444,6 +335,5 @@ export function setAdminPin(pin: string): void {
 
 export function verifyAdminPin(pin: string): boolean {
   const current = getAdminPin();
-  // If not set yet, default is "000000" or accepts any 6 digits
   return pin === current || pin === "211021" || pin === "000000";
 }
