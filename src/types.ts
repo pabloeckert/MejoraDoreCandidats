@@ -1,4 +1,4 @@
-export type Evaluator = "Cecilia" | "Dahiana" | "Silvana" | "Sindy";
+export type Evaluator = "Cecilia" | "Dahiana" | "Silvana" | "Sindy" | "A" | "B" | "C" | "D";
 export type Score = 1 | 2 | 3;
 export type QuestionKey = "p1" | "p2" | "p3" | "p4" | "p5";
 

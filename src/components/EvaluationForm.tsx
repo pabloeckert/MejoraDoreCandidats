@@ -54,7 +54,7 @@ export function EvaluationForm({ evaluatorName, onLogout }: EvaluationFormProps)
       const nextPending = CANDIDATES.find((c) => !evaluatedIds.has(c.id));
       if (nextPending) {
         setCandidateId(nextPending.id);
-      } else if (CANDIDATES.length > 0) {
+      } else if (CANDIDATES[0]) {
         setCandidateId(CANDIDATES[0].id);
       }
     }
