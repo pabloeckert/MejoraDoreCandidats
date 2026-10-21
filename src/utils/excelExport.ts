@@ -2,6 +2,7 @@ import ExcelJS from "exceljs";
 import fileSaver from "file-saver";
 import { CANDIDATES } from "@/data";
 import { computeAll, STATUS_LABEL } from "./scoring";
+import { getEvaluatorDisplayName } from "@/components/Dashboard";
 import type { Evaluation } from "@/types";
 
 const saveAs = fileSaver.saveAs || fileSaver;
@@ -210,7 +211,7 @@ export async function generateEvaluationsBackupExcel(evaluations: Evaluation[]):
         : e.updated_at
           ? new Date(e.updated_at).toLocaleString("es-AR")
           : "—",
-      e.evaluator,
+      getEvaluatorDisplayName(e),
       candName,
       e.p1,
       e.p2,

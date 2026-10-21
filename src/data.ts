@@ -1,6 +1,6 @@
 import type { Candidate, Evaluator, Question } from "./types";
 
-export const EVALUATORS: Evaluator[] = ["Cecilia", "Dahiana", "Silvana", "Sindy"];
+export const EVALUATORS: Evaluator[] = ["Sindy", "Cecilia", "Silvana", "Dahiana"];
 
 export const CANDIDATES: Candidate[] = [
   { id: "cerioli", name: "Cerioli, Javier", shift: "Mañana", start: "08:30", end: "09:10" },

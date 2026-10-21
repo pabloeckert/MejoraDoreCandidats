@@ -17,20 +17,50 @@ import { cn } from "@/lib/utils";
 
 const fmt = (n: number | null) => (n === null ? "—" : n.toFixed(1).replace(".", ","));
 
+export const OFFICIAL_EVALUATORS = ["Sindy", "Cecilia", "Silvana", "Dahiana"] as const;
+
+/**
+ * Resolves the real evaluator display name.
+ * Handles `evaluacion.evaluadora`, `evaluacion.nombre_evaluadora`, `evaluacion.evaluator`,
+ * and any legacy letter fallbacks ('A' -> 'Sindy', 'B' -> 'Cecilia', 'C' -> 'Silvana', 'D' -> 'Dahiana').
+ */
+export function getEvaluatorDisplayName(e: any): string {
+  const raw = (e?.evaluadora || e?.nombre_evaluadora || e?.evaluator || "").toString().trim();
+  const letterMap: Record<string, string> = {
+    A: "Sindy",
+    B: "Cecilia",
+    C: "Silvana",
+    D: "Dahiana",
+    a: "Sindy",
+    b: "Cecilia",
+    c: "Silvana",
+    d: "Dahiana",
+  };
+  if (letterMap[raw]) return letterMap[raw];
+
+  const matched = OFFICIAL_EVALUATORS.find(
+    (name) => name.toLowerCase() === raw.toLowerCase(),
+  );
+  if (matched) return matched;
+
+  return raw || "Evaluadora";
+}
+
 /**
  * Large colored status badge with motive
- * Ej: "Veto: Cecilia puso 1 en Contingencias"
+ * Ej: "Veto: Silvana puso 1 en Contingencias"
  */
 function StatusBadgeWithMotive({ r }: { r: CandidateResult }) {
   if (r.status === "veto") {
     // Collect all reasons why this candidate was vetoed (P2 or P4 = 1)
     const reasons: string[] = [];
     for (const e of r.evaluations) {
+      const evName = getEvaluatorDisplayName(e);
       if (e.p2 === 1) {
-        reasons.push(`${e.evaluator} puso 1 en Contingencias`);
+        reasons.push(`${evName} puso 1 en Contingencias`);
       }
       if (e.p4 === 1) {
-        reasons.push(`${e.evaluator} puso 1 en Delimitación`);
+        reasons.push(`${evName} puso 1 en Delimitación`);
       }
     }
     const motiveText = reasons.length > 0 ? reasons.join(", ") : "Puntaje 1 en pregunta crítica";
@@ -110,7 +140,10 @@ function StatusBadgeWithMotive({ r }: { r: CandidateResult }) {
   );
 }
 
-function exportCsv(results: CandidateResult[], evaluatorsList: string[]) {
+function exportCsv(
+  results: CandidateResult[],
+  evaluatorsList: readonly string[] = OFFICIAL_EVALUATORS,
+) {
   const rows = [
     ["Candidato", "Turno", "Horario", "Evaluaciones", "Puntaje Final", "Estado", ...evaluatorsList],
   ];
@@ -123,7 +156,9 @@ function exportCsv(results: CandidateResult[], evaluatorsList: string[]) {
       fmt(r.score),
       STATUS_LABEL[r.status],
       ...evaluatorsList.map((ev) => {
-        const e = r.evaluations.find((x) => x.evaluator === ev);
+        const e = r.evaluations.find(
+          (x) => getEvaluatorDisplayName(x).toLowerCase() === ev.toLowerCase(),
+        );
         return e
           ? QUESTIONS.map((q) => `${q.key.toUpperCase()}:${e[q.key]}`).join(" ") +
               (e.comment ? ` [${e.comment}]` : "")
@@ -142,7 +177,7 @@ function exportCsv(results: CandidateResult[], evaluatorsList: string[]) {
   URL.revokeObjectURL(url);
 }
 
-function Detail({ r, isDemo = false }: { r: CandidateResult; isDemo?: boolean }) {
+function Detail({ r }: { r: CandidateResult; isDemo?: boolean }) {
   if (!r.count) {
     return (
       <div className="py-2 text-xs italic text-muted-foreground">
@@ -151,9 +186,12 @@ function Detail({ r, isDemo = false }: { r: CandidateResult; isDemo?: boolean })
     );
   }
 
-  const expectedEvaluators = isDemo ? ["A", "B", "C", "D"] : EVALUATORS;
-  const missingEvaluators = expectedEvaluators.filter(
-    (ev) => !r.evaluations.some((e) => e.evaluator === ev),
+  // Cross loaded evaluations against OFFICIAL_EVALUATORS ['Sindy', 'Cecilia', 'Silvana', 'Dahiana']
+  const evaluatedNames = r.evaluations.map((e) =>
+    getEvaluatorDisplayName(e).toLowerCase(),
+  );
+  const missingEvaluators = OFFICIAL_EVALUATORS.filter(
+    (ev) => !evaluatedNames.includes(ev.toLowerCase()),
   );
 
   return (
@@ -173,18 +211,19 @@ function Detail({ r, isDemo = false }: { r: CandidateResult; isDemo?: boolean })
             </tr>
           </thead>
           <tbody className="divide-y divide-border/60">
-            {r.evaluations.map((e) => {
+            {r.evaluations.map((e, idx) => {
               const subtotal = QUESTIONS.reduce((sum, q) => sum + e[q.key] * q.weight, 0);
               const isVetoCause = e.p2 === 1 || e.p4 === 1;
+              const displayName = getEvaluatorDisplayName(e);
 
               return (
                 <tr
-                  key={e.evaluator}
+                  key={e.id || `${displayName}-${idx}`}
                   className={cn("hover:bg-muted/30", isVetoCause && "bg-[#E1061E]/5")}
                 >
                   <td className="px-3 py-2 font-medium">
                     <span className="flex items-center gap-1.5">
-                      <span>{e.evaluator}</span>
+                      <span className="font-semibold text-gray-900">{displayName}</span>
                       {isVetoCause && (
                         <span className="rounded bg-[#E1061E] px-1 py-0.2 text-[9px] font-bold text-white">
                           VETO
@@ -227,7 +266,7 @@ function Detail({ r, isDemo = false }: { r: CandidateResult; isDemo?: boolean })
         <div className="flex items-center gap-1.5 text-xs text-amber-800">
           <Clock className="size-3.5" />
           <span>
-            Falta evaluación de: <strong>{missingEvaluators.join(", ")}</strong>
+            Falta evaluación de: <strong className="font-semibold text-amber-900">{missingEvaluators.join(", ")}</strong>
           </span>
         </div>
       )}
@@ -333,7 +372,7 @@ export function Dashboard() {
           <button
             type="button"
             className="btn-outline cursor-pointer"
-            onClick={() => exportCsv(results, isDemoActive ? ["A", "B", "C", "D"] : EVALUATORS)}
+            onClick={() => exportCsv(results, OFFICIAL_EVALUATORS)}
           >
             <Download className="size-3.5" />
             <span>Descargar CSV</span>
@@ -352,7 +391,7 @@ export function Dashboard() {
               <p className="font-bold text-amber-900 text-sm">Estás viendo datos de ejemplo</p>
               <p className="text-amber-800">
                 Mostrando casos de prueba en memoria (Terna Final, En Reserva, Descartado, Veto y
-                Pendiente evaluados por A, B, C y D). Estos datos no se guardan en la base de datos.
+                Pendiente evaluados por Sindy, Cecilia, Silvana y Dahiana). Estos datos no se guardan en la base de datos.
               </p>
             </div>
           </div>

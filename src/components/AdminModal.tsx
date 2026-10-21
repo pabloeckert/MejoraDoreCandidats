@@ -31,14 +31,14 @@ import { getAllUsers, getActivityEvents, type UserRecord } from "@/lib/auth";
 import { CANDIDATES, EVALUATORS, QUESTIONS } from "@/data";
 import { computeAll, computeResult } from "@/utils/scoring";
 import { useEvalStore } from "@/store";
-import { supabase } from "@/integrations/supabase/client";
-import { generateEvaluationsBackupExcel } from "@/utils/excelExport";
 import {
   exportConsolidadoPdf,
   exportFichaCandidatosPdf,
   exportAuditoriaPdf,
 } from "@/utils/pdfExport";
 import { DEMO_CANDIDATES, DEMO_EVALUATIONS } from "@/data.demo";
+import { getEvaluatorDisplayName } from "@/components/Dashboard";
+import { ResetConfirmDialog } from "@/components/ResetConfirmDialog";
 
 interface AdminModalProps {
   isOpen: boolean;
@@ -51,12 +51,9 @@ export function AdminModal({ isOpen, onClose, currentUser }: AdminModalProps) {
     "graficas",
   );
   const [showConfirmReset, setShowConfirmReset] = useState(false);
-  const [confirmInput, setConfirmInput] = useState("");
-  const [confirmCheck, setConfirmCheck] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
 
   const isSindy = currentUser?.trim().toLowerCase() === "sindy";
-  const { evaluations, resetAll } = useEvalStore();
+  const { evaluations } = useEvalStore();
 
   // Read all users from client storage
   const usersRecord = useMemo(() => {
@@ -174,9 +171,10 @@ export function AdminModal({ isOpen, onClose, currentUser }: AdminModalProps) {
 
   // Chart 3: Evaluator Severity / Average Score
   const chartEvaluatorAvg = useMemo(() => {
-    const list = isDemo ? ["A", "B", "C", "D"] : EVALUATORS;
-    return list.map((ev) => {
-      const userEvals = currentEvals.filter((e) => e.evaluator === ev);
+    return EVALUATORS.map((ev) => {
+      const userEvals = currentEvals.filter(
+        (e) => getEvaluatorDisplayName(e).toLowerCase() === ev.toLowerCase(),
+      );
       if (userEvals.length === 0) {
         return { evaluator: ev, promedio: 0, total: 0 };
       }
@@ -189,48 +187,7 @@ export function AdminModal({ isOpen, onClose, currentUser }: AdminModalProps) {
         total: userEvals.length,
       };
     });
-  }, [currentEvals, isDemo]);
-
-  const handleExecuteReset = async () => {
-    if (confirmInput.trim() !== "BORRAR") {
-      toast.error("Debés escribir la palabra BORRAR para proceder.");
-      return;
-    }
-    if (!confirmCheck) {
-      toast.error("Marcá la casilla de confirmación para proceder.");
-      return;
-    }
-
-    setIsResetting(true);
-    try {
-      // 1. Generar y descargar primero el archivo Excel de backup
-      toast.info("Generando archivo Excel de respaldo...");
-      await generateEvaluationsBackupExcel(evaluations);
-      toast.success("✓ Backup Excel generado y descargado con éxito.");
-
-      // 2. Inmediatamente después, borrado masivo en Supabase
-      const { error } = await supabase
-        .from("evaluations")
-        .delete()
-        .neq("id", "00000000-0000-0000-0000-000000000000");
-
-      if (error) {
-        console.error("Error al borrar en Supabase:", error);
-        toast.error(`Error al borrar en la base de datos: ${error.message}`);
-        return;
-      }
-
-      // 3. Vaciar el estado global en la interfaz
-      resetAll();
-      toast.success("✓ Base de datos reseteada. Todas las evaluaciones han sido eliminadas.");
-      setShowConfirmReset(false);
-    } catch (err) {
-      console.error("Error durante el reseteo:", err);
-      toast.error("Ocurrió un error al procesar el reseteo total.");
-    } finally {
-      setIsResetting(false);
-    }
-  };
+  }, [currentEvals]);
 
   if (!isOpen) return null;
 
@@ -270,11 +227,7 @@ export function AdminModal({ isOpen, onClose, currentUser }: AdminModalProps) {
             {isSindy && (
               <button
                 type="button"
-                onClick={() => {
-                  setConfirmInput("");
-                  setConfirmCheck(false);
-                  setShowConfirmReset(true);
-                }}
+                onClick={() => setShowConfirmReset(true)}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-[#E1061E] px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-[#c7051a] transition cursor-pointer"
                 title="Descargar backup Excel y resetear todas las evaluaciones"
               >
@@ -324,6 +277,35 @@ export function AdminModal({ isOpen, onClose, currentUser }: AdminModalProps) {
 
           {/* Tab Panes */}
           <div className="flex-1 overflow-y-auto p-6">
+            {/* Top Critical Action for Sindy */}
+            {isSindy && (
+              <div className="mb-6 rounded-2xl border-2 border-red-200 bg-red-50/70 p-4 shadow-xs">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-red-100 text-[#E1061E]">
+                      <AlertOctagon className="size-5" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-[#E1061E]">
+                        Acción Crítica Exclusiva (Sindy) · Reseteo Total
+                      </h4>
+                      <p className="text-xs text-gray-600 mt-0.5">
+                        Descarga el backup en Excel y elimina todas las evaluaciones de Supabase.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmReset(true)}
+                    className="flex items-center gap-1.5 rounded-xl bg-[#E1061E] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#c7051a] transition cursor-pointer shrink-0"
+                  >
+                    <Trash2 className="size-3.5" />
+                    <span>Reseteo Total (Peligro)</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* TAB 1: EVALUADORAS */}
             {activeTab === "usuarios" && (
               <div className="space-y-4">
@@ -647,12 +629,7 @@ export function AdminModal({ isOpen, onClose, currentUser }: AdminModalProps) {
 
                     <button
                       type="button"
-                      onClick={() =>
-                        exportConsolidadoPdf(
-                          candidateResults,
-                          isDemo ? ["A", "B", "C", "D"] : EVALUATORS,
-                        )
-                      }
+                      onClick={() => exportConsolidadoPdf(candidateResults, EVALUATORS)}
                       className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#1A3D84] py-2.5 text-xs font-semibold text-white shadow-xs hover:bg-[#15326c] transition cursor-pointer"
                     >
                       <Download className="size-3.5" />
@@ -732,11 +709,7 @@ export function AdminModal({ isOpen, onClose, currentUser }: AdminModalProps) {
 
                       <button
                         type="button"
-                        onClick={() => {
-                          setConfirmInput("");
-                          setConfirmCheck(false);
-                          setShowConfirmReset(true);
-                        }}
+                        onClick={() => setShowConfirmReset(true)}
                         className="flex items-center gap-2 rounded-xl bg-[#E1061E] px-4 py-2.5 text-xs font-bold text-white shadow-xs hover:bg-[#c7051a] transition cursor-pointer shrink-0"
                       >
                         <Trash2 className="size-4" />
@@ -752,110 +725,10 @@ export function AdminModal({ isOpen, onClose, currentUser }: AdminModalProps) {
       </div>
 
       {/* Modal de Doble Confirmación Estricta */}
-      {showConfirmReset && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="relative w-full max-w-md rounded-2xl border-2 border-red-300 bg-white p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
-            {/* Header Modal */}
-            <div className="flex items-start gap-3">
-              <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-red-100 text-[#E1061E]">
-                <AlertOctagon className="size-6 stroke-[2.5]" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-[#E1061E] leading-tight">
-                  Confirmación de Reseteo Total
-                </h3>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Esta acción es destructiva e irreversible.
-                </p>
-              </div>
-            </div>
-
-            {/* Warning steps */}
-            <div className="rounded-xl border border-red-200 bg-red-50/70 p-3.5 text-xs text-red-950 space-y-2">
-              <p className="font-semibold text-red-900">
-                El sistema ejecutará automáticamente la siguiente secuencia:
-              </p>
-              <ol className="list-decimal pl-4 space-y-1 text-[11px] text-red-800">
-                <li>
-                  <strong>Backup Excel (.xlsx):</strong> Descargará el libro con la hoja{" "}
-                  <em>Dashboard</em> (resumen) y la hoja <em>Datos Crudos</em> (todas las
-                  evaluaciones).
-                </li>
-                <li>
-                  <strong>Borrado Definitivo:</strong> Eliminará todas las filas de la tabla{" "}
-                  <code className="font-mono bg-red-100 px-1 py-0.5 rounded">evaluations</code> en
-                  Supabase y vaciará el estado de la interfaz.
-                </li>
-              </ol>
-            </div>
-
-            {/* Checkbox confirmation */}
-            <label
-              htmlFor="reset-check"
-              className="flex items-start gap-2.5 rounded-xl border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700 cursor-pointer hover:bg-gray-100/70 transition-colors select-none"
-            >
-              <input
-                id="reset-check"
-                type="checkbox"
-                checked={confirmCheck}
-                onChange={(e) => setConfirmCheck(e.target.checked)}
-                className="mt-0.5 size-4 accent-[#E1061E] cursor-pointer"
-              />
-              <span className="leading-tight">
-                Confirmo que deseo descargar el backup en Excel y{" "}
-                <strong>borrar todas las evaluaciones</strong> de la base de datos.
-              </span>
-            </label>
-
-            {/* Security Word Challenge */}
-            <div className="space-y-1.5">
-              <label
-                htmlFor="confirm-word-input"
-                className="block text-xs font-bold uppercase tracking-wider text-gray-700 text-center"
-              >
-                Escribí <span className="text-[#E1061E]">BORRAR</span> para habilitar:
-              </label>
-              <input
-                id="confirm-word-input"
-                type="text"
-                value={confirmInput}
-                onChange={(e) => setConfirmInput(e.target.value.toUpperCase())}
-                placeholder="BORRAR"
-                autoFocus
-                disabled={isResetting}
-                className="w-full text-center font-mono text-base font-extrabold tracking-widest text-[#E1061E] placeholder:text-gray-300 rounded-xl border-2 border-red-300 bg-white py-2.5 px-3 focus:border-[#E1061E] focus:outline-none focus:ring-2 focus:ring-[#E1061E]/20"
-              />
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => setShowConfirmReset(false)}
-                disabled={isResetting}
-                className="flex-1 rounded-xl border border-gray-300 bg-white py-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition cursor-pointer disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleExecuteReset}
-                disabled={confirmInput.trim() !== "BORRAR" || !confirmCheck || isResetting}
-                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-[#E1061E] py-2.5 text-xs font-bold text-white shadow-xs hover:bg-[#c7051a] transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {isResetting ? (
-                  <span>Procesando...</span>
-                ) : (
-                  <>
-                    <Trash2 className="size-3.5" />
-                    <span>Descargar y Borrar</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ResetConfirmDialog
+        isOpen={showConfirmReset}
+        onClose={() => setShowConfirmReset(false)}
+      />
     </div>
   );
 }

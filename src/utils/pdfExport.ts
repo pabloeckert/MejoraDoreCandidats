@@ -4,6 +4,7 @@ import type { CandidateResult } from "@/types";
 import type { UserRecord, ActivityEvent } from "@/lib/auth";
 import { QUESTIONS } from "@/data";
 import { STATUS_LABEL } from "@/utils/scoring";
+import { getEvaluatorDisplayName } from "@/components/Dashboard";
 
 const fmt = (n: number | null) => (n === null ? "—" : n.toFixed(1).replace(".", ","));
 
@@ -54,7 +55,9 @@ export function exportConsolidadoPdf(results: CandidateResult[], evaluatorsList:
   const tableData = results.map((r) => {
     const evDetails = evaluatorsList
       .map((ev) => {
-        const e = r.evaluations.find((x) => x.evaluator === ev);
+        const e = r.evaluations.find(
+          (x) => getEvaluatorDisplayName(x).toLowerCase() === ev.toLowerCase(),
+        );
         if (!e) return `${ev}: Pendiente`;
         const sub = QUESTIONS.reduce((sum, q) => sum + e[q.key] * q.weight, 0);
         return `${ev}: ${sub} pts`;
@@ -65,7 +68,7 @@ export function exportConsolidadoPdf(results: CandidateResult[], evaluatorsList:
     if (r.status === "veto") {
       const vetoReasons = r.evaluations
         .filter((e) => e.p2 === 1 || e.p4 === 1)
-        .map((e) => `${e.evaluator} (P${e.p2 === 1 ? "2" : "4"}=1)`);
+        .map((e) => `${getEvaluatorDisplayName(e)} (P${e.p2 === 1 ? "2" : "4"}=1)`);
       if (vetoReasons.length > 0) {
         statusText += `\n${vetoReasons.join(", ")}`;
       }
@@ -222,7 +225,7 @@ export function exportFichaCandidatosPdf(results: CandidateResult[]) {
     const rows = r.evaluations.map((e) => {
       const sub = QUESTIONS.reduce((sum, q) => sum + e[q.key] * q.weight, 0);
       return [
-        e.evaluator,
+        getEvaluatorDisplayName(e),
         String(e.p1),
         String(e.p2) + (e.p2 === 1 ? " (!)" : ""),
         String(e.p3),

@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { HelpCircle, LogOut, BarChart3 } from "lucide-react";
+import { HelpCircle, LogOut, BarChart3, AlertOctagon, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { EvaluationForm } from "@/components/EvaluationForm";
 import { Dashboard } from "@/components/Dashboard";
 import { LoginScreen } from "@/components/LoginScreen";
 import { TutorialGuide } from "@/components/TutorialGuide";
 import { AdminModal } from "@/components/AdminModal";
+import { ResetConfirmDialog } from "@/components/ResetConfirmDialog";
 import {
   getStoredSession,
   clearStoredSession,
@@ -41,6 +42,7 @@ function Index() {
   const [session, setSession] = useState<UserSession | null>(getStoredSession);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
   const { load, upsertLocal, removeLocal, flushPending } = useEvalStore();
 
   // Check tutorial on initial load
@@ -153,16 +155,27 @@ function Index() {
 
           {/* Navigation & User Actions Right */}
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            {/* Exclusive "Informe" button for Sindy */}
+            {/* Exclusive actions for Sindy: Informe + Reseteo Total */}
             {session.nombre?.trim().toLowerCase() === "sindy" && (
-              <button
-                type="button"
-                onClick={() => setShowAdminModal(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-[#1A3D84] px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#15326c] transition cursor-pointer"
-              >
-                <BarChart3 className="size-3.5" />
-                <span>Informe</span>
-              </button>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAdminModal(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#1A3D84] px-3 py-1.5 text-xs font-semibold text-white shadow-xs hover:bg-[#15326c] transition cursor-pointer"
+                >
+                  <BarChart3 className="size-3.5" />
+                  <span>Informe</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowResetModal(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#E1061E] px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-[#c7051a] transition cursor-pointer"
+                  title="Reseteo total de evaluaciones con descarga previa de Excel (Peligro)"
+                >
+                  <Trash2 className="size-3.5" />
+                  <span>Reseteo Total (Peligro)</span>
+                </button>
+              </div>
             )}
 
             {/* Tutorial Button */}
@@ -233,6 +246,12 @@ function Index() {
         isOpen={showAdminModal}
         onClose={() => setShowAdminModal(false)}
         currentUser={session?.nombre}
+      />
+
+      {/* Sindy Exclusive Double Confirmation Reset Modal */}
+      <ResetConfirmDialog
+        isOpen={showResetModal}
+        onClose={() => setShowResetModal(false)}
       />
     </div>
   );
